@@ -4,6 +4,11 @@ export type CodeLanguage = 'javascript' | 'typescript' | 'python' | 'cpp';
 
 export type DifficultyBadge = 'Easy' | 'Medium' | 'Hard';
 
+export type LearningPhase =
+  | 'Phase 1: Beginner Foundations'
+  | 'Phase 2: Intermediate Patterns & Trees'
+  | 'Phase 3: Advanced Graphs, DP & Trees';
+
 export interface VisualPointer {
   label: string;
   index: number;
@@ -107,6 +112,8 @@ export interface TopicData {
   intuition: string;
   internals: string;
   relatedProblemIds?: string[];
+  learningOrder?: number;
+  learningPhase?: LearningPhase;
 }
 
 export interface ProblemTestCase {
@@ -117,10 +124,13 @@ export interface ProblemTestCase {
 
 export interface PracticeProblem {
   id: string;
-  number: number;
+  number: number; // Topic-local or global problem number
   title: string;
   difficulty: DifficultyBadge;
   topicId: string;
+  progressionStage?: string;
+  recommendedFirst?: boolean;
+  logicHint?: string;
   description: string;
   example1: {
     input: string;

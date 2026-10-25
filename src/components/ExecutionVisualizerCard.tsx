@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Share2, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Share2, CheckCircle2, ArrowRight, Lightbulb, Cpu } from 'lucide-react';
 import { TopicData, TopicStep, VisualPointer } from '../types/codeflow';
 
 interface ExecutionVisualizerCardProps {
@@ -49,9 +49,11 @@ export const ExecutionVisualizerCard: React.FC<ExecutionVisualizerCardProps> = (
   onSelectStep,
   darkMode
 }) => {
+  const [showDeepWhy, setShowDeepWhy] = useState<boolean>(true);
+
   // Build clean trace lines for the Execution Trace list
   const traceLines =
-    topic.id === 'binary-search'
+    topic.id === 'binary-search' && topic.steps.length === 8
       ? [
           { stepIdx: 2, text: 'mid = Math.floor((0 + 4) / 2) → 2   (value = 5)' },
           { stepIdx: 3, text: 'Compare 7 with 5 → 7 > 5, so move left = mid + 1' },
@@ -74,7 +76,7 @@ export const ExecutionVisualizerCard: React.FC<ExecutionVisualizerCardProps> = (
     >
       <div>
         {/* Card Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3.5">
           <div className="flex items-center gap-2">
             <Share2 className="w-4 h-4 text-[#2563EB]" />
             <h2
@@ -86,20 +88,39 @@ export const ExecutionVisualizerCard: React.FC<ExecutionVisualizerCardProps> = (
             </h2>
           </div>
 
-          <span
-            className={`px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${
-              darkMode
-                ? 'bg-blue-950/70 border-blue-800 text-blue-300'
-                : 'bg-[#EBF2FF] border-[#D0E1FD] text-[#2563EB]'
-            }`}
-          >
-            {topic.title}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowDeepWhy((prev) => !prev)}
+              className={`px-2 py-0.5 rounded-md text-[10.5px] font-semibold border flex items-center gap-1 transition-colors cursor-pointer ${
+                showDeepWhy
+                  ? darkMode
+                    ? 'bg-blue-950/70 border-blue-700 text-blue-300'
+                    : 'bg-[#EBF2FF] border-[#BFDBFE] text-[#2563EB]'
+                  : darkMode
+                  ? 'bg-slate-800 border-slate-700 text-slate-400'
+                  : 'bg-slate-50 border-slate-200 text-slate-500'
+              }`}
+              title="Toggle Deep 'Why It Works' Step Inspector"
+            >
+              <Lightbulb className="w-3 h-3" />
+              <span>Why It Works</span>
+            </button>
+
+            <span
+              className={`px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${
+                darkMode
+                  ? 'bg-blue-950/70 border-blue-800 text-blue-300'
+                  : 'bg-[#EBF2FF] border-[#D0E1FD] text-[#2563EB]'
+              }`}
+            >
+              {topic.title}
+            </span>
+          </div>
         </div>
 
         {/* Visual Diagram Canvas */}
         <div
-          className={`rounded-xl border px-4 py-5 mb-4 min-h-[148px] flex flex-col items-center justify-center ${
+          className={`rounded-xl border px-4 py-5 mb-3.5 min-h-[148px] flex flex-col items-center justify-center ${
             darkMode
               ? 'bg-slate-950/60 border-slate-800/80'
               : 'bg-[#FAFBFD] border-[#EDF2F7]'
@@ -351,19 +372,78 @@ export const ExecutionVisualizerCard: React.FC<ExecutionVisualizerCardProps> = (
             </div>
           )}
         </div>
+
+        {/* Deep "Why It Works & Live Memory Registers" Callout */}
+        {showDeepWhy && (
+          <div
+            className={`rounded-xl border p-3 mb-3.5 space-y-2 transition-all ${
+              darkMode
+                ? 'bg-slate-950/80 border-slate-800 text-slate-200'
+                : 'bg-[#F8FAFC] border-[#E2E8F0] text-[#1E293B]'
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#2563EB]">
+                <Lightbulb className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  Step {stepIndex + 1} — What & Why It Works (Line {currentStep.activeLine})
+                </span>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 text-[#2563EB] border border-blue-200 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300">
+                Time: {topic.timeComplexity} · Space: {topic.spaceComplexity}
+              </span>
+            </div>
+
+            <p className="text-[11.5px] font-medium leading-relaxed">
+              {currentStep.explanation}
+            </p>
+
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              <strong className="text-slate-700 dark:text-slate-300">Why this step is safe: </strong>
+              {topic.intuition}
+            </p>
+
+            {/* Live Inline Variable Registers */}
+            {currentStep.variables && Object.keys(currentStep.variables).length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 mr-1">
+                  <Cpu className="w-3 h-3 text-[#2563EB]" /> Memory:
+                </span>
+                {Object.entries(currentStep.variables).map(([k, v]) => (
+                  <span
+                    key={k}
+                    className={`px-2 py-0.5 rounded text-[10.5px] font-mono border ${
+                      darkMode
+                        ? 'bg-slate-900 border-slate-700 text-slate-200'
+                        : 'bg-white border-slate-200 text-slate-700 shadow-2xs'
+                    }`}
+                  >
+                    <span className="text-slate-400">{k}=</span>
+                    <strong className="text-[#2563EB]">{String(v)}</strong>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Execution Trace List */}
       <div>
-        <h3
-          className={`text-xs font-bold mb-2 ${
-            darkMode ? 'text-slate-200' : 'text-[#1E293B]'
-          }`}
-        >
-          Execution Trace
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3
+            className={`text-xs font-bold ${
+              darkMode ? 'text-slate-200' : 'text-[#1E293B]'
+            }`}
+          >
+            Execution Trace
+          </h3>
+          <span className="text-[10px] font-mono text-slate-400">
+            Click any row or press ← / → / Space
+          </span>
+        </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 max-h-[195px] overflow-y-auto pr-0.5">
           {traceLines.map((item, idx) => {
             const isCurrent =
               stepIndex === item.stepIdx || (idx === 0 && stepIndex < traceLines[0].stepIdx);

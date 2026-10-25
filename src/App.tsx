@@ -1,12 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { ALL_CODEFLOW_TOPICS, PRACTICE_PROBLEMS } from './data/problemsData';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  ALL_CODEFLOW_TOPICS,
+  PRACTICE_PROBLEMS,
+  getProblemsForTopic
+} from './data/problemsData';
 import { CodeLanguage, PracticeProblem, TopicData } from './types/codeflow';
 import { TopNavbar } from './components/TopNavbar';
 import { LeftSidebar } from './components/LeftSidebar';
 import { CodeEditorCard } from './components/CodeEditorCard';
 import { ExecutionVisualizerCard } from './components/ExecutionVisualizerCard';
 import { BottomWorkspace } from './components/BottomWorkspace';
-import { generateCustomSteps, CustomRunResult } from './utils/customStepGenerator';
+import {
+  generateCustomSteps,
+  getCustomInputMeta,
+  CustomRunResult
+} from './utils/customStepGenerator';
 import {
   ChevronRight,
   ChevronLeft,
@@ -16,33 +24,92 @@ import {
   RotateCcw,
   ChevronDown,
   FileCode2,
-  SlidersHorizontal
+  SlidersHorizontal,
+  CheckCircle2
 } from 'lucide-react';
 
+const LS_FAV_KEY = 'codeflow_favourites_v1';
+const LS_COMPLETED_TOPICS_KEY = 'codeflow_completed_topics_v1';
+const LS_SOLVED_PROBLEMS_KEY = 'codeflow_solved_problems_v1';
+
+function loadSavedList(key: string): string[] {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export function App() {
-  // Default to 'binary-search' and Problem #2 ('Binary Search') to match the reference design on load
+  // Default to 'binary-search' and its #1 Recommended Problem on load
   const [selectedTopicId, setSelectedTopicId] = useState<string>('binary-search');
   const [stepIndex, setStepIndex] = useState<number>(2); // 0-indexed -> Step 3 / 8
   const [language, setLanguage] = useState<CodeLanguage>('javascript');
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [favourites, setFavourites] = useState<string[]>([]);
+
+  // Persistent Progress & Favourites in localStorage
+  const [favourites, setFavourites] = useState<string[]>(() => loadSavedList(LS_FAV_KEY));
+  const [completedTopics, setCompletedTopics] = useState<string[]>(() =>
+    loadSavedList(LS_COMPLETED_TOPICS_KEY)
+  );
+  const [solvedProblems, setSolvedProblems] = useState<string[]>(() =>
+    loadSavedList(LS_SOLVED_PROBLEMS_KEY)
+  );
+
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
   const [demoMode, setDemoMode] = useState<string>('Demo Algorithm');
   const [selectedProblem, setSelectedProblem] = useState<PracticeProblem>(
-    PRACTICE_PROBLEMS[1] // #2 Binary Search
+    () => getProblemsForTopic('binary-search')[0] || PRACTICE_PROBLEMS[0]
   );
+
+  // Sync to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_FAV_KEY, JSON.stringify(favourites));
+    } catch {
+      // ignore storage errors
+    }
+  }, [favourites]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_COMPLETED_TOPICS_KEY, JSON.stringify(completedTopics));
+    } catch {
+      // ignore storage errors
+    }
+  }, [completedTopics]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_SOLVED_PROBLEMS_KEY, JSON.stringify(solvedProblems));
+    } catch {
+      // ignore storage errors
+    }
+  }, [solvedProblems]);
+
+  const baseTopic =
+    ALL_CODEFLOW_TOPICS.find((t) => t.id === selectedTopicId) || ALL_CODEFLOW_TOPICS[0];
+
+  const customMeta = getCustomInputMeta(baseTopic.id);
 
   // Dynamic Custom Input state
   const [showCustomInput, setShowCustomInput] = useState<boolean>(false);
-  const [customArrayStr, setCustomArrayStr] = useState<string>('1, 3, 5, 7, 9, 11, 15');
-  const [customTargetStr, setCustomTargetStr] = useState<string>('11');
+  const [customArrayStr, setCustomArrayStr] = useState<string>(customMeta.defaultArray);
+  const [customTargetStr, setCustomTargetStr] = useState<string>(customMeta.defaultTarget);
   const [customRun, setCustomRun] = useState<CustomRunResult | null>(null);
 
-  const baseTopic =
-    ALL_CODEFLOW_TOPICS.find((t) => t.id === selectedTopicId) || ALL_CODEFLOW_TOPICS[15];
+  // Update default custom inputs when switching topics
+  useEffect(() => {
+    const meta = getCustomInputMeta(baseTopic.id);
+    setCustomArrayStr(meta.defaultArray);
+    setCustomTargetStr(meta.defaultTarget);
+  }, [baseTopic.id]);
 
   // Merge custom steps if active
   const currentTopic: TopicData = customRun
@@ -57,7 +124,7 @@ export function App() {
   const safeStepIndex = Math.min(stepIndex, totalSteps - 1);
   const currentStep = currentTopic.steps[safeStepIndex];
 
-  // Handle topic selection
+  // Handle topic selection — automatically selects the #1 Recommended Beginner Problem for that topic
   const handleSelectTopic = (topicId: string) => {
     setIsPlaying(false);
     setCustomRun(null);
@@ -68,9 +135,9 @@ export function App() {
     } else {
       setStepIndex(0);
     }
-    const matchingProblem = PRACTICE_PROBLEMS.find((p) => p.topicId === topicId);
-    if (matchingProblem) {
-      setSelectedProblem(matchingProblem);
+    const topicProbs = getProblemsForTopic(topicId);
+    if (topicProbs.length > 0) {
+      setSelectedProblem(topicProbs[0]);
     }
   };
 
@@ -89,22 +156,44 @@ export function App() {
     return () => clearInterval(timer);
   }, [isPlaying, totalSteps]);
 
-  const handleRunToggle = () => {
-    if (isPlaying) {
-      setIsPlaying(false);
-    } else {
-      if (safeStepIndex >= totalSteps - 1) {
-        setStepIndex(0);
+  const handleRunToggle = useCallback(() => {
+    setIsPlaying((prevPlaying) => {
+      if (prevPlaying) {
+        return false;
       }
-      setIsPlaying(true);
-    }
-  };
+      setStepIndex((curr) => (curr >= totalSteps - 1 ? 0 : curr));
+      return true;
+    });
+  }, [totalSteps]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setIsPlaying(false);
     setCustomRun(null);
     setStepIndex(0);
-  };
+  }, []);
+
+  // Keyboard shortcuts: Space (Play/Pause), ArrowLeft (Prev Step), ArrowRight (Next Step)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = (document.activeElement as HTMLElement)?.tagName;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeTag)) return;
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setIsPlaying(false);
+        setStepIndex((s) => Math.min(totalSteps - 1, s + 1));
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setIsPlaying(false);
+        setStepIndex((s) => Math.max(0, s - 1));
+      } else if (e.code === 'Space') {
+        e.preventDefault();
+        handleRunToggle();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [totalSteps, handleRunToggle]);
 
   const handleApplyCustomInput = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +211,27 @@ export function App() {
     );
   };
 
+  const toggleCompletedTopic = (id: string) => {
+    setCompletedTopics((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const markTopicCompleted = (id: string) => {
+    setCompletedTopics((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+
+  const markProblemSolved = (id: string) => {
+    setSolvedProblems((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+
+  const handleResetProgress = () => {
+    setCompletedTopics([]);
+    setSolvedProblems([]);
+  };
+
   const isFav = favourites.includes(currentTopic.id);
+  const isCompleted = completedTopics.includes(currentTopic.id);
 
   const difficultyBadgeStyle =
     currentTopic.difficulty === 'Easy'
@@ -152,8 +261,8 @@ export function App() {
         allProblems={PRACTICE_PROBLEMS}
         onSelectTopic={handleSelectTopic}
         onSelectProblem={(prob) => {
-          setSelectedProblem(prob);
           handleSelectTopic(prob.topicId);
+          setSelectedProblem(prob);
         }}
         darkMode={darkMode}
         onToggleDarkMode={() => setDarkMode(!darkMode)}
@@ -161,6 +270,11 @@ export function App() {
         mobileMenuOpen={mobileMenuOpen}
         sidebarVisible={sidebarVisible}
         onToggleSidebar={() => setSidebarVisible((prev) => !prev)}
+        favourites={favourites}
+        onToggleFavourite={toggleFavourite}
+        completedTopics={completedTopics}
+        solvedProblems={solvedProblems}
+        onResetProgress={handleResetProgress}
       />
 
       {/* Main Body Layout: Left Sidebar + Right Content Workspace */}
@@ -174,19 +288,33 @@ export function App() {
           onCloseMobile={() => setMobileMenuOpen(false)}
           sidebarVisible={sidebarVisible}
           onToggleSidebar={() => setSidebarVisible((prev) => !prev)}
+          completedTopics={completedTopics}
+          favourites={favourites}
         />
 
         {/* Main Workspace automatically expands smoothly when sidebar is hidden */}
         <main className="flex-1 min-w-0 p-4 sm:p-5 lg:p-6 space-y-4 transition-all duration-300 ease-in-out">
-          {/* 1. Topic Header & Breadcrumb Section */}
+          {/* 1. Topic Header & Structured Roadmap Breadcrumb Section */}
           <div className="space-y-1.5">
             {/* Breadcrumb */}
-            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
-              <span>{currentTopic.pillar}</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-              <span className={darkMode ? 'text-slate-300' : 'text-slate-600'}>
-                {currentTopic.title}
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-medium text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <span>{currentTopic.pillar}</span>
+                {currentTopic.learningPhase && (
+                  <>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                    <span className="text-[#2563EB] font-semibold">
+                      {currentTopic.learningPhase}
+                    </span>
+                  </>
+                )}
+                <ChevronRight className="w-3.5 h-3.5" />
+                <span className={darkMode ? 'text-slate-300' : 'text-slate-600'}>
+                  {currentTopic.learningOrder
+                    ? `#${currentTopic.learningOrder}. ${currentTopic.title}`
+                    : currentTopic.title}
+                </span>
+              </div>
             </div>
 
             {/* Title + Difficulty + Right Action Buttons */}
@@ -206,8 +334,26 @@ export function App() {
                 </span>
               </div>
 
-              {/* Right Controls: Add to Favourites + Top Step Counter */}
-              <div className="flex items-center gap-2.5">
+              {/* Right Controls: Mastered Toggle + Add to Favourites + Top Step Counter */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => toggleCompletedTopic(currentTopic.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                    isCompleted
+                      ? 'bg-[#DCFCE7] border-[#86EFAC] text-[#15803D] dark:bg-emerald-950/50 dark:border-emerald-700 dark:text-emerald-300'
+                      : darkMode
+                      ? 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                      : 'bg-white border-[#E2E8F0] text-[#334155] hover:bg-slate-50 shadow-2xs'
+                  }`}
+                >
+                  <CheckCircle2
+                    className={`w-3.5 h-3.5 ${
+                      isCompleted ? 'text-[#16A34A]' : 'text-slate-400'
+                    }`}
+                  />
+                  <span>{isCompleted ? 'Mastered' : 'Mark Mastered'}</span>
+                </button>
+
                 <button
                   onClick={() => toggleFavourite(currentTopic.id)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
@@ -242,6 +388,7 @@ export function App() {
                     disabled={safeStepIndex === 0}
                     className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 transition-colors cursor-pointer"
                     aria-label="Previous step"
+                    title="Previous step (←)"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
@@ -256,6 +403,7 @@ export function App() {
                     disabled={safeStepIndex >= totalSteps - 1}
                     className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 transition-colors cursor-pointer"
                     aria-label="Next step"
+                    title="Next step (→)"
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -327,6 +475,7 @@ export function App() {
                     setStepIndex((s) => Math.max(0, s - 1));
                   }}
                   disabled={safeStepIndex === 0}
+                  title="Step Backward (←)"
                   className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 cursor-pointer"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
@@ -343,6 +492,7 @@ export function App() {
                     setStepIndex((s) => Math.min(totalSteps - 1, s + 1));
                   }}
                   disabled={safeStepIndex >= totalSteps - 1}
+                  title="Step Forward (→)"
                   className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 cursor-pointer"
                 >
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -351,6 +501,7 @@ export function App() {
 
               <button
                 onClick={handleRunToggle}
+                title="Run / Pause (Space)"
                 className="px-4 py-1.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 {isPlaying ? (
@@ -445,71 +596,107 @@ export function App() {
             </div>
           </div>
 
-          {/* Optional Expandable Custom Input Bar */}
+          {/* Optional Expandable Custom Input Bar with Topic-Aware Labels & Presets */}
           {showCustomInput && currentTopic.pillar === 'DSA' && (
             <form
               onSubmit={handleApplyCustomInput}
-              className={`rounded-xl border px-4 py-3 flex flex-wrap items-center justify-between gap-3 transition-all ${
+              className={`rounded-xl border px-4 py-3 space-y-2.5 transition-all ${
                 darkMode
                   ? 'bg-slate-900 border-slate-800'
                   : 'bg-white border-[#BFDBFE] shadow-2xs'
               }`}
             >
-              <div className="flex flex-wrap items-center gap-3 flex-1">
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-bold text-[#2563EB]">
-                    Array Values:
-                  </label>
-                  <input
-                    type="text"
-                    value={customArrayStr}
-                    onChange={(e) => setCustomArrayStr(e.target.value)}
-                    placeholder="e.g. 1, 3, 5, 7, 9, 11"
-                    className={`px-2.5 py-1 rounded-lg border font-mono text-xs w-52 sm:w-64 focus:outline-none focus:border-blue-500 ${
-                      darkMode
-                        ? 'bg-slate-950 border-slate-700 text-slate-100'
-                        : 'bg-[#F8FAFC] border-slate-200 text-slate-800'
-                    }`}
-                  />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3 flex-1">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-[#2563EB]">
+                      {customMeta.arrayLabel}
+                    </label>
+                    <input
+                      type="text"
+                      value={customArrayStr}
+                      onChange={(e) => setCustomArrayStr(e.target.value)}
+                      placeholder={customMeta.defaultArray}
+                      className={`px-2.5 py-1 rounded-lg border font-mono text-xs w-52 sm:w-64 focus:outline-none focus:border-blue-500 ${
+                        darkMode
+                          ? 'bg-slate-950 border-slate-700 text-slate-100'
+                          : 'bg-[#F8FAFC] border-slate-200 text-slate-800'
+                      }`}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-[#2563EB]">
+                      {customMeta.targetLabel}
+                    </label>
+                    <input
+                      type="text"
+                      value={customTargetStr}
+                      onChange={(e) => setCustomTargetStr(e.target.value)}
+                      placeholder={customMeta.defaultTarget}
+                      className={`px-2.5 py-1 rounded-lg border font-mono text-xs w-20 focus:outline-none focus:border-blue-500 ${
+                        darkMode
+                          ? 'bg-slate-950 border-slate-700 text-slate-100'
+                          : 'bg-[#F8FAFC] border-slate-200 text-slate-800'
+                      }`}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <label className="text-xs font-bold text-[#2563EB]">
-                    Target / Param:
-                  </label>
-                  <input
-                    type="text"
-                    value={customTargetStr}
-                    onChange={(e) => setCustomTargetStr(e.target.value)}
-                    placeholder="e.g. 11"
-                    className={`px-2.5 py-1 rounded-lg border font-mono text-xs w-20 focus:outline-none focus:border-blue-500 ${
-                      darkMode
-                        ? 'bg-slate-950 border-slate-700 text-slate-100'
-                        : 'bg-[#F8FAFC] border-slate-200 text-slate-800'
-                    }`}
-                  />
+                  {customRun && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomRun(null);
+                        setStepIndex(0);
+                      }}
+                      className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-500 hover:text-slate-800 cursor-pointer"
+                    >
+                      Reset Default
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    className="px-3.5 py-1.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold shadow-2xs cursor-pointer"
+                  >
+                    Apply & Animate
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                {customRun && (
+              {/* Quick 1-Click Presets */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-[10.5px] font-semibold text-slate-400 mr-1">
+                  Quick Presets:
+                </span>
+                {customMeta.presets.map((preset) => (
                   <button
+                    key={preset.label}
                     type="button"
                     onClick={() => {
-                      setCustomRun(null);
-                      setStepIndex(0);
+                      setCustomArrayStr(preset.arr);
+                      setCustomTargetStr(preset.target);
+                      const res = generateCustomSteps(
+                        baseTopic.id,
+                        preset.arr,
+                        preset.target
+                      );
+                      if (res) {
+                        setCustomRun(res);
+                        setStepIndex(0);
+                        setIsPlaying(true);
+                      }
                     }}
-                    className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-500 hover:text-slate-800 cursor-pointer"
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors cursor-pointer ${
+                      darkMode
+                        ? 'bg-slate-950 border-slate-800 text-slate-300 hover:border-blue-500'
+                        : 'bg-[#F8FAFC] border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-[#2563EB] hover:border-blue-200'
+                    }`}
                   >
-                    Reset Default
+                    {preset.label}
                   </button>
-                )}
-                <button
-                  type="submit"
-                  className="px-3.5 py-1.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold shadow-2xs cursor-pointer"
-                >
-                  Apply & Animate
-                </button>
+                ))}
               </div>
             </form>
           )}
@@ -534,14 +721,13 @@ export function App() {
             />
           </div>
 
-          {/* 4. Bottom Workspace: Problems List + Question Details / Interactive Judge / Codebase Explorer */}
+          {/* 4. Bottom Workspace: Topic-Filtered Problem Set + Guided Onboarding + Explorer */}
           <BottomWorkspace
             problems={PRACTICE_PROBLEMS}
             selectedProblem={selectedProblem}
             onSelectProblem={(prob) => setSelectedProblem(prob)}
             onStartSolving={(prob) => {
               setSelectedProblem(prob);
-              handleSelectTopic(prob.topicId);
               setStepIndex(0);
               setIsPlaying(true);
               window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -549,6 +735,9 @@ export function App() {
             currentTopic={currentTopic}
             currentStep={currentStep}
             darkMode={darkMode}
+            solvedProblems={solvedProblems}
+            onMarkProblemSolved={markProblemSolved}
+            onMarkTopicCompleted={markTopicCompleted}
           />
         </main>
       </div>

@@ -8,9 +8,14 @@ import {
   Menu,
   X,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  Star,
+  CheckCircle2,
+  Trophy,
+  Trash2,
+  ArrowRight
 } from 'lucide-react';
-import { TopicData, PracticeProblem } from '../types/codeflow';
+import { TopicData, PracticeProblem, PillarId } from '../types/codeflow';
 
 interface TopNavbarProps {
   searchQuery: string;
@@ -25,6 +30,11 @@ interface TopNavbarProps {
   mobileMenuOpen: boolean;
   sidebarVisible: boolean;
   onToggleSidebar: () => void;
+  favourites: string[];
+  onToggleFavourite: (topicId: string) => void;
+  completedTopics: string[];
+  solvedProblems: string[];
+  onResetProgress: () => void;
 }
 
 export const TopNavbar: React.FC<TopNavbarProps> = ({
@@ -39,10 +49,17 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   onToggleMobileMenu,
   mobileMenuOpen,
   sidebarVisible,
-  onToggleSidebar
+  onToggleSidebar,
+  favourites,
+  onToggleFavourite,
+  completedTopics,
+  solvedProblems,
+  onResetProgress
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [favDrawerOpen, setFavDrawerOpen] = useState(false);
+  const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
 
   // Press '/' to focus search bar
   useEffect(() => {
@@ -59,6 +76,8 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         setDropdownOpen(true);
       } else if (e.key === 'Escape') {
         setDropdownOpen(false);
+        setFavDrawerOpen(false);
+        setProfileDrawerOpen(false);
         inputRef.current?.blur();
       }
     };
@@ -81,6 +100,13 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         .filter((p) => p.title.toLowerCase().includes(searchQuery.toLowerCase()))
         .slice(0, 4)
     : [];
+
+  const favouriteTopics = allTopics.filter((t) => favourites.includes(t.id));
+  const masteryPercent = Math.round(
+    (completedTopics.length / Math.max(1, allTopics.length)) * 100
+  );
+
+  const pillarsList: PillarId[] = ['DSA', 'Backend', 'System Design', 'Web Dev'];
 
   return (
     <header
@@ -249,20 +275,30 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         )}
       </div>
 
-      {/* Right: Utility Icons & User Profile */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+      {/* Right: Utility Icons (Favourites & Milestones, Dark Mode, User Progress Profile) */}
+      <div className="relative flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Bell / Favourites & Activity Drawer Button */}
         <button
-          title="Notifications"
-          className={`p-2 rounded-lg transition-colors relative ${
-            darkMode
+          onClick={() => {
+            setFavDrawerOpen((prev) => !prev);
+            setProfileDrawerOpen(false);
+          }}
+          title="Saved Favourites & Learning Activity"
+          className={`p-2 rounded-lg transition-colors relative cursor-pointer ${
+            favDrawerOpen
+              ? 'bg-blue-50 text-[#2563EB] dark:bg-slate-800 dark:text-blue-400'
+              : darkMode
               ? 'text-slate-300 hover:bg-slate-800'
               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
           }`}
         >
           <Bell className="w-4 h-4" />
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 absolute top-2 right-2" />
+          {(favourites.length > 0 || completedTopics.length > 0) && (
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 absolute top-2 right-2" />
+          )}
         </button>
 
+        {/* Dark / Light Mode Toggle */}
         <button
           onClick={onToggleDarkMode}
           title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
@@ -275,12 +311,196 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           {darkMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
         </button>
 
-        <div
-          title="Soaib"
-          className="w-7 h-7 rounded-full bg-[#3B82F6] text-white text-xs font-bold flex items-center justify-center shadow-xs select-none cursor-pointer"
+        {/* User Profile & Mastery Dashboard Avatar */}
+        <button
+          onClick={() => {
+            setProfileDrawerOpen((prev) => !prev);
+            setFavDrawerOpen(false);
+          }}
+          title="Learner Progress & Mastery Dashboard"
+          className={`w-7 h-7 rounded-full bg-[#3B82F6] text-white text-xs font-bold flex items-center justify-center shadow-xs select-none cursor-pointer transition-transform ${
+            profileDrawerOpen ? 'ring-2 ring-blue-400 scale-105' : 'hover:scale-105'
+          }`}
         >
           S
-        </div>
+        </button>
+
+        {/* POPOVER 1: Saved Favourites & Activity Drawer */}
+        {favDrawerOpen && (
+          <div
+            className={`absolute right-0 top-12 w-80 rounded-xl border shadow-xl p-3.5 z-50 space-y-3 ${
+              darkMode
+                ? 'bg-slate-900 border-slate-700 text-slate-100'
+                : 'bg-white border-[#E2E8F0] text-[#1E293B]'
+            }`}
+          >
+            <div className="flex items-center justify-between border-b pb-2 border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 text-xs font-bold">
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                <span>Saved Favourites ({favouriteTopics.length})</span>
+              </div>
+              <button
+                onClick={() => setFavDrawerOpen(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {favouriteTopics.length === 0 ? (
+              <div className="py-4 text-center text-xs text-slate-400">
+                No favourite topics saved yet. Click <strong>"Add to Favourites"</strong> on any topic to bookmark it here!
+              </div>
+            ) : (
+              <div className="max-h-56 overflow-y-auto space-y-1.5">
+                {favouriteTopics.map((t) => (
+                  <div
+                    key={t.id}
+                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs ${
+                      darkMode
+                        ? 'bg-slate-950/60 border-slate-800'
+                        : 'bg-[#F8FAFC] border-slate-200/80'
+                    }`}
+                  >
+                    <button
+                      onClick={() => {
+                        onSelectTopic(t.id);
+                        setFavDrawerOpen(false);
+                      }}
+                      className="text-left font-semibold hover:text-[#2563EB] truncate flex-1 cursor-pointer"
+                    >
+                      {t.title}
+                      <span className="ml-1.5 text-[10px] font-normal text-slate-400">
+                        ({t.pillar})
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => onToggleFavourite(t.id)}
+                      title="Remove from Favourites"
+                      className="text-slate-400 hover:text-rose-500 ml-2 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
+              <span>Mastered Topics: {completedTopics.length}</span>
+              <span>Solved Problems: {solvedProblems.length}</span>
+            </div>
+          </div>
+        )}
+
+        {/* POPOVER 2: Learner Progress & Mastery Dashboard */}
+        {profileDrawerOpen && (
+          <div
+            className={`absolute right-0 top-12 w-84 rounded-xl border shadow-xl p-4 z-50 space-y-3.5 ${
+              darkMode
+                ? 'bg-slate-900 border-slate-700 text-slate-100'
+                : 'bg-white border-[#E2E8F0] text-[#1E293B]'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-[#2563EB] text-white text-sm font-extrabold flex items-center justify-center">
+                  S
+                </div>
+                <div>
+                  <div className="text-xs font-extrabold">Soaib — CodeFlow Learner</div>
+                  <div className="text-[11px] text-slate-400">
+                    Progress saved locally in browser
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setProfileDrawerOpen(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Overall Mastery Bar */}
+            <div
+              className={`p-3 rounded-lg border space-y-2 ${
+                darkMode ? 'bg-slate-950 border-slate-800' : 'bg-[#F8FAFC] border-[#E2E8F0]'
+              }`}
+            >
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5 text-[#2563EB]" /> Overall Platform Mastery
+                </span>
+                <span className="font-mono font-bold text-[#2563EB]">{masteryPercent}%</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full bg-[#2563EB] transition-all duration-300"
+                  style={{ width: `${masteryPercent}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <span>
+                  {completedTopics.length} / {allTopics.length} Topics Mastered
+                </span>
+                <span>
+                  {solvedProblems.length} / {allProblems.length} Problems Solved
+                </span>
+              </div>
+            </div>
+
+            {/* Subject Breakdown */}
+            <div className="space-y-1.5">
+              <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                Subject Breakdown
+              </div>
+              {pillarsList.map((pil) => {
+                const total = allTopics.filter((t) => t.pillar === pil).length;
+                const done = allTopics.filter(
+                  (t) => t.pillar === pil && completedTopics.includes(t.id)
+                ).length;
+                return (
+                  <div
+                    key={pil}
+                    className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800/60 last:border-0"
+                  >
+                    <span className="font-medium">{pil}</span>
+                    <span className="font-mono text-[11px] text-[#16A34A] font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {done} / {total}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <button
+                onClick={() => {
+                  const nextTopic =
+                    allTopics.find((t) => !completedTopics.includes(t.id)) || allTopics[0];
+                  onSelectTopic(nextTopic.id);
+                  setProfileDrawerOpen(false);
+                }}
+                className="flex-1 px-3 py-1.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>Next Unmastered Topic</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+
+              {(completedTopics.length > 0 || solvedProblems.length > 0) && (
+                <button
+                  onClick={onResetProgress}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 hover:text-rose-600 cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </header>
   );
