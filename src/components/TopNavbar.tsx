@@ -1,5 +1,15 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Search, Bell, Sun, Moon, Code2, Menu, X } from 'lucide-react';
+import {
+  Search,
+  Bell,
+  Sun,
+  Moon,
+  Code2,
+  Menu,
+  X,
+  PanelLeftClose,
+  PanelLeftOpen
+} from 'lucide-react';
 import { TopicData, PracticeProblem } from '../types/codeflow';
 
 interface TopNavbarProps {
@@ -13,6 +23,8 @@ interface TopNavbarProps {
   onToggleDarkMode: () => void;
   onToggleMobileMenu: () => void;
   mobileMenuOpen: boolean;
+  sidebarVisible: boolean;
+  onToggleSidebar: () => void;
 }
 
 export const TopNavbar: React.FC<TopNavbarProps> = ({
@@ -25,7 +37,9 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   darkMode,
   onToggleDarkMode,
   onToggleMobileMenu,
-  mobileMenuOpen
+  mobileMenuOpen,
+  sidebarVisible,
+  onToggleSidebar
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -33,7 +47,13 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   // Press '/' to focus search bar
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === '/' && document.activeElement !== inputRef.current && !['INPUT', 'TEXTAREA'].includes((document.activeElement as HTMLElement)?.tagName)) {
+      if (
+        e.key === '/' &&
+        document.activeElement !== inputRef.current &&
+        !['INPUT', 'TEXTAREA', 'SELECT'].includes(
+          (document.activeElement as HTMLElement)?.tagName
+        )
+      ) {
         e.preventDefault();
         inputRef.current?.focus();
         setDropdownOpen(true);
@@ -47,17 +67,19 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   }, []);
 
   const filteredTopics = searchQuery.trim()
-    ? allTopics.filter(
-        (t) =>
-          t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.pillar.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 6)
+    ? allTopics
+        .filter(
+          (t) =>
+            t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            t.pillar.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .slice(0, 6)
     : [];
 
   const filteredProblems = searchQuery.trim()
-    ? allProblems.filter((p) =>
-        p.title.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 4)
+    ? allProblems
+        .filter((p) => p.title.toLowerCase().includes(searchQuery.toLowerCase()))
+        .slice(0, 4)
     : [];
 
   return (
@@ -68,18 +90,37 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           : 'bg-white/95 border-[#E5EAF2] text-slate-800'
       } backdrop-blur-md`}
     >
-      {/* Left: Brand Logo */}
+      {/* Left: Sidebar Toggle + Brand Logo */}
       <div className="flex items-center gap-2.5 shrink-0">
+        {/* Mobile menu button (< lg) */}
         <button
           onClick={onToggleMobileMenu}
-          className={`lg:hidden p-1.5 rounded-lg border ${
+          className={`lg:hidden p-1.5 rounded-lg border transition-colors ${
             darkMode
               ? 'border-slate-700 text-slate-300 hover:bg-slate-800'
               : 'border-slate-200 text-slate-600 hover:bg-slate-100'
           }`}
-          aria-label="Toggle Menu"
+          aria-label="Toggle Mobile Menu"
         >
           {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+        </button>
+
+        {/* Desktop Sidebar Visibility Toggle (lg+) */}
+        <button
+          onClick={onToggleSidebar}
+          title={sidebarVisible ? 'Hide Sidebar' : 'Show Sidebar'}
+          aria-label={sidebarVisible ? 'Hide Sidebar' : 'Show Sidebar'}
+          className={`hidden lg:flex items-center justify-center p-1.5 rounded-lg border transition-all cursor-pointer ${
+            darkMode
+              ? 'border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white'
+              : 'border-[#E2E8F0] text-slate-600 hover:bg-slate-100 hover:text-[#2563EB]'
+          }`}
+        >
+          {sidebarVisible ? (
+            <PanelLeftClose className="w-4 h-4" />
+          ) : (
+            <PanelLeftOpen className="w-4 h-4 text-[#2563EB]" />
+          )}
         </button>
 
         <div
@@ -225,13 +266,13 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         <button
           onClick={onToggleDarkMode}
           title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          className={`p-2 rounded-lg transition-colors ${
+          className={`p-2 rounded-lg transition-colors cursor-pointer ${
             darkMode
               ? 'text-amber-300 hover:bg-slate-800'
               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
           }`}
         >
-          {darkMode ? <Sun className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          {darkMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
         </button>
 
         <div

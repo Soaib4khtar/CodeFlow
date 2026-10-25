@@ -109,6 +109,12 @@ export interface TopicData {
   relatedProblemIds?: string[];
 }
 
+export interface ProblemTestCase {
+  label: string;
+  args: unknown[];
+  expected: unknown;
+}
+
 export interface PracticeProblem {
   id: string;
   number: number;
@@ -124,5 +130,8 @@ export interface PracticeProblem {
     input: string;
     output: string;
   };
-  starterCode?: Record<CodeLanguage, string>;
+  functionName: string;
+  starterCode: string;
+  solutionCode: string;
+  testCases: ProblemTestCase[];
 }

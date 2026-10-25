@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { ALL_CODEFLOW_TOPICS, PRACTICE_PROBLEMS } from './data/problemsData';
-import { CodeLanguage, PracticeProblem } from './types/codeflow';
+import { CodeLanguage, PracticeProblem, TopicData } from './types/codeflow';
 import { TopNavbar } from './components/TopNavbar';
 import { LeftSidebar } from './components/LeftSidebar';
 import { CodeEditorCard } from './components/CodeEditorCard';
 import { ExecutionVisualizerCard } from './components/ExecutionVisualizerCard';
 import { BottomWorkspace } from './components/BottomWorkspace';
+import { generateCustomSteps, CustomRunResult } from './utils/customStepGenerator';
 import {
   ChevronRight,
   ChevronLeft,
@@ -14,7 +15,8 @@ import {
   Pause,
   RotateCcw,
   ChevronDown,
-  FileCode2
+  FileCode2,
+  SlidersHorizontal
 } from 'lucide-react';
 
 export function App() {
@@ -27,13 +29,29 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
   const [demoMode, setDemoMode] = useState<string>('Demo Algorithm');
   const [selectedProblem, setSelectedProblem] = useState<PracticeProblem>(
     PRACTICE_PROBLEMS[1] // #2 Binary Search
   );
 
-  const currentTopic =
+  // Dynamic Custom Input state
+  const [showCustomInput, setShowCustomInput] = useState<boolean>(false);
+  const [customArrayStr, setCustomArrayStr] = useState<string>('1, 3, 5, 7, 9, 11, 15');
+  const [customTargetStr, setCustomTargetStr] = useState<string>('11');
+  const [customRun, setCustomRun] = useState<CustomRunResult | null>(null);
+
+  const baseTopic =
     ALL_CODEFLOW_TOPICS.find((t) => t.id === selectedTopicId) || ALL_CODEFLOW_TOPICS[15];
+
+  // Merge custom steps if active
+  const currentTopic: TopicData = customRun
+    ? {
+        ...baseTopic,
+        steps: customRun.steps,
+        traceSummary: customRun.traceSummary
+      }
+    : baseTopic;
 
   const totalSteps = currentTopic.steps.length;
   const safeStepIndex = Math.min(stepIndex, totalSteps - 1);
@@ -42,6 +60,7 @@ export function App() {
   // Handle topic selection
   const handleSelectTopic = (topicId: string) => {
     setIsPlaying(false);
+    setCustomRun(null);
     setSelectedTopicId(topicId);
     const nextTopic = ALL_CODEFLOW_TOPICS.find((t) => t.id === topicId);
     if (nextTopic) {
@@ -66,7 +85,7 @@ export function App() {
         }
         return prev + 1;
       });
-    }, 1100);
+    }, 1050);
     return () => clearInterval(timer);
   }, [isPlaying, totalSteps]);
 
@@ -83,7 +102,18 @@ export function App() {
 
   const handleReset = () => {
     setIsPlaying(false);
+    setCustomRun(null);
     setStepIndex(0);
+  };
+
+  const handleApplyCustomInput = (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = generateCustomSteps(baseTopic.id, customArrayStr, customTargetStr);
+    if (res) {
+      setCustomRun(res);
+      setStepIndex(0);
+      setIsPlaying(true);
+    }
   };
 
   const toggleFavourite = (id: string) => {
@@ -129,6 +159,8 @@ export function App() {
         onToggleDarkMode={() => setDarkMode(!darkMode)}
         onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
         mobileMenuOpen={mobileMenuOpen}
+        sidebarVisible={sidebarVisible}
+        onToggleSidebar={() => setSidebarVisible((prev) => !prev)}
       />
 
       {/* Main Body Layout: Left Sidebar + Right Content Workspace */}
@@ -140,10 +172,12 @@ export function App() {
           darkMode={darkMode}
           mobileOpen={mobileMenuOpen}
           onCloseMobile={() => setMobileMenuOpen(false)}
+          sidebarVisible={sidebarVisible}
+          onToggleSidebar={() => setSidebarVisible((prev) => !prev)}
         />
 
-        {/* Main Workspace */}
-        <main className="flex-1 min-w-0 p-4 sm:p-5 lg:p-6 space-y-4">
+        {/* Main Workspace automatically expands smoothly when sidebar is hidden */}
+        <main className="flex-1 min-w-0 p-4 sm:p-5 lg:p-6 space-y-4 transition-all duration-300 ease-in-out">
           {/* 1. Topic Header & Breadcrumb Section */}
           <div className="space-y-1.5">
             {/* Breadcrumb */}
@@ -176,7 +210,7 @@ export function App() {
               <div className="flex items-center gap-2.5">
                 <button
                   onClick={() => toggleFavourite(currentTopic.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
                     isFav
                       ? 'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-950/50 dark:border-amber-700 dark:text-amber-300'
                       : darkMode
@@ -206,7 +240,7 @@ export function App() {
                       setStepIndex((s) => Math.max(0, s - 1));
                     }}
                     disabled={safeStepIndex === 0}
-                    className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 transition-colors"
+                    className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 transition-colors cursor-pointer"
                     aria-label="Previous step"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
@@ -220,7 +254,7 @@ export function App() {
                       setStepIndex((s) => Math.min(totalSteps - 1, s + 1));
                     }}
                     disabled={safeStepIndex >= totalSteps - 1}
-                    className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 transition-colors"
+                    className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 transition-colors cursor-pointer"
                     aria-label="Next step"
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -293,7 +327,7 @@ export function App() {
                     setStepIndex((s) => Math.max(0, s - 1));
                   }}
                   disabled={safeStepIndex === 0}
-                  className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35"
+                  className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 cursor-pointer"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
@@ -309,7 +343,7 @@ export function App() {
                     setStepIndex((s) => Math.min(totalSteps - 1, s + 1));
                   }}
                   disabled={safeStepIndex >= totalSteps - 1}
-                  className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35"
+                  className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 cursor-pointer"
                 >
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
@@ -345,40 +379,140 @@ export function App() {
               </button>
             </div>
 
-            {/* Right: Demo Algorithm Mode Selector */}
-            <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold ${
-                darkMode
-                  ? 'bg-slate-900 border-slate-800 text-slate-200'
-                  : 'bg-white border-[#E2E8F0] text-[#334155] shadow-2xs'
-              }`}
-            >
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-              <FileCode2 className="w-3.5 h-3.5 text-[#2563EB]" />
-              <select
-                value={demoMode}
-                onChange={(e) => {
-                  setDemoMode(e.target.value);
-                  if (e.target.value === 'Step 1 Start') setStepIndex(0);
-                  else if (e.target.value === 'Final Result') setStepIndex(totalSteps - 1);
-                  else setStepIndex(currentTopic.defaultStep ? currentTopic.defaultStep - 1 : 0);
-                }}
-                aria-label="Select demo mode"
-                className="bg-transparent pr-4 focus:outline-none cursor-pointer text-xs font-semibold appearance-none"
+            {/* Right: Demo Algorithm Mode Selector + Custom Input Toggle */}
+            <div className="flex items-center gap-2">
+              {currentTopic.pillar === 'DSA' && (
+                <button
+                  onClick={() => setShowCustomInput((prev) => !prev)}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    showCustomInput || customRun
+                      ? 'bg-[#E8F1FF] border-[#3B82F6] text-[#1D4ED8]'
+                      : darkMode
+                      ? 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                      : 'bg-white border-[#E2E8F0] text-[#334155] hover:bg-slate-50 shadow-2xs'
+                  }`}
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-[#2563EB]" />
+                  <span>Custom Input</span>
+                </button>
+              )}
+
+              <div
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+                  darkMode
+                    ? 'bg-slate-900 border-slate-800 text-slate-200'
+                    : 'bg-white border-[#E2E8F0] text-[#334155] shadow-2xs'
+                }`}
               >
-                <option value="Demo Algorithm" className="text-slate-900">
-                  Demo Algorithm
-                </option>
-                <option value="Step 1 Start" className="text-slate-900">
-                  Start from Step 1
-                </option>
-                <option value="Final Result" className="text-slate-900">
-                  Jump to Final Output
-                </option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 -ml-3 pointer-events-none" />
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                <FileCode2 className="w-3.5 h-3.5 text-[#2563EB]" />
+                <select
+                  value={demoMode}
+                  onChange={(e) => {
+                    setDemoMode(e.target.value);
+                    if (e.target.value === 'Custom Input') {
+                      setShowCustomInput(true);
+                    } else if (e.target.value === 'Step 1 Start') {
+                      setCustomRun(null);
+                      setStepIndex(0);
+                    } else if (e.target.value === 'Final Result') {
+                      setStepIndex(totalSteps - 1);
+                    } else {
+                      setCustomRun(null);
+                      setStepIndex(
+                        baseTopic.defaultStep ? baseTopic.defaultStep - 1 : 0
+                      );
+                    }
+                  }}
+                  aria-label="Select demo mode"
+                  className="bg-transparent pr-4 focus:outline-none cursor-pointer text-xs font-semibold appearance-none"
+                >
+                  <option value="Demo Algorithm" className="text-slate-900">
+                    Demo Algorithm
+                  </option>
+                  <option value="Step 1 Start" className="text-slate-900">
+                    Start from Step 1
+                  </option>
+                  <option value="Final Result" className="text-slate-900">
+                    Jump to Final Output
+                  </option>
+                  <option value="Custom Input" className="text-slate-900">
+                    Custom Array / Target
+                  </option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 -ml-3 pointer-events-none" />
+              </div>
             </div>
           </div>
+
+          {/* Optional Expandable Custom Input Bar */}
+          {showCustomInput && currentTopic.pillar === 'DSA' && (
+            <form
+              onSubmit={handleApplyCustomInput}
+              className={`rounded-xl border px-4 py-3 flex flex-wrap items-center justify-between gap-3 transition-all ${
+                darkMode
+                  ? 'bg-slate-900 border-slate-800'
+                  : 'bg-white border-[#BFDBFE] shadow-2xs'
+              }`}
+            >
+              <div className="flex flex-wrap items-center gap-3 flex-1">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold text-[#2563EB]">
+                    Array Values:
+                  </label>
+                  <input
+                    type="text"
+                    value={customArrayStr}
+                    onChange={(e) => setCustomArrayStr(e.target.value)}
+                    placeholder="e.g. 1, 3, 5, 7, 9, 11"
+                    className={`px-2.5 py-1 rounded-lg border font-mono text-xs w-52 sm:w-64 focus:outline-none focus:border-blue-500 ${
+                      darkMode
+                        ? 'bg-slate-950 border-slate-700 text-slate-100'
+                        : 'bg-[#F8FAFC] border-slate-200 text-slate-800'
+                    }`}
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold text-[#2563EB]">
+                    Target / Param:
+                  </label>
+                  <input
+                    type="text"
+                    value={customTargetStr}
+                    onChange={(e) => setCustomTargetStr(e.target.value)}
+                    placeholder="e.g. 11"
+                    className={`px-2.5 py-1 rounded-lg border font-mono text-xs w-20 focus:outline-none focus:border-blue-500 ${
+                      darkMode
+                        ? 'bg-slate-950 border-slate-700 text-slate-100'
+                        : 'bg-[#F8FAFC] border-slate-200 text-slate-800'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {customRun && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomRun(null);
+                      setStepIndex(0);
+                    }}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-500 hover:text-slate-800 cursor-pointer"
+                  >
+                    Reset Default
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className="px-3.5 py-1.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold shadow-2xs cursor-pointer"
+                >
+                  Apply & Animate
+                </button>
+              </div>
+            </form>
+          )}
 
           {/* 3. Main Two-Column Split: Code Editor Card + Execution Visualizer Card */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -400,7 +534,7 @@ export function App() {
             />
           </div>
 
-          {/* 4. Bottom Workspace: Problems List + Question Details / Code Explorer */}
+          {/* 4. Bottom Workspace: Problems List + Question Details / Interactive Judge / Codebase Explorer */}
           <BottomWorkspace
             problems={PRACTICE_PROBLEMS}
             selectedProblem={selectedProblem}
