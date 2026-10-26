@@ -10,11 +10,11 @@ import { LeftSidebar } from './components/LeftSidebar';
 import { CodeEditorCard } from './components/CodeEditorCard';
 import { ExecutionVisualizerCard } from './components/ExecutionVisualizerCard';
 import { BottomWorkspace } from './components/BottomWorkspace';
+import { getBlankStarterCode, generatePseudocode } from './utils/problemHelpers';
 import {
-  generateCustomSteps,
-  getCustomInputMeta,
-  CustomRunResult
-} from './utils/customStepGenerator';
+  executeAndVisualizeCode,
+  LiveExecutionResult
+} from './utils/liveCodeVisualizer';
 import {
   ChevronRight,
   ChevronLeft,
@@ -23,9 +23,11 @@ import {
   Pause,
   RotateCcw,
   ChevronDown,
-  FileCode2,
-  SlidersHorizontal,
-  CheckCircle2
+  CheckCircle2,
+  Eye,
+  FileText,
+  X,
+  PanelLeftOpen
 } from 'lucide-react';
 
 const LS_FAV_KEY = 'codeflow_favourites_v1';
@@ -63,10 +65,27 @@ export function App() {
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
-  const [demoMode, setDemoMode] = useState<string>('Demo Algorithm');
+
   const [selectedProblem, setSelectedProblem] = useState<PracticeProblem>(
     () => getProblemsForTopic('binary-search')[0] || PRACTICE_PROBLEMS[0]
   );
+
+  const baseTopic =
+    ALL_CODEFLOW_TOPICS.find((t) => t.id === selectedTopicId) || ALL_CODEFLOW_TOPICS[0];
+
+  // Main Code Editor state & dynamic live execution trace state
+  const [editorCode, setEditorCode] = useState<string>(() => baseTopic.code['javascript']);
+  const [liveResult, setLiveResult] = useState<LiveExecutionResult | null>(null);
+  const [showPseudocode, setShowPseudocode] = useState<boolean>(false);
+
+  // Synchronize darkMode class on document element
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
 
   // Sync to localStorage
   useEffect(() => {
@@ -93,52 +112,111 @@ export function App() {
     }
   }, [solvedProblems]);
 
-  const baseTopic =
-    ALL_CODEFLOW_TOPICS.find((t) => t.id === selectedTopicId) || ALL_CODEFLOW_TOPICS[0];
-
-  const customMeta = getCustomInputMeta(baseTopic.id);
-
-  // Dynamic Custom Input state
-  const [showCustomInput, setShowCustomInput] = useState<boolean>(false);
-  const [customArrayStr, setCustomArrayStr] = useState<string>(customMeta.defaultArray);
-  const [customTargetStr, setCustomTargetStr] = useState<string>(customMeta.defaultTarget);
-  const [customRun, setCustomRun] = useState<CustomRunResult | null>(null);
-
-  // Update default custom inputs when switching topics
-  useEffect(() => {
-    const meta = getCustomInputMeta(baseTopic.id);
-    setCustomArrayStr(meta.defaultArray);
-    setCustomTargetStr(meta.defaultTarget);
-  }, [baseTopic.id]);
-
-  // Merge custom steps if active
-  const currentTopic: TopicData = customRun
-    ? {
-        ...baseTopic,
-        steps: customRun.steps,
-        traceSummary: customRun.traceSummary
-      }
-    : baseTopic;
+  // Merge live visualized steps if the user ran custom/problem code without errors
+  const currentTopic: TopicData =
+    liveResult && !liveResult.error && liveResult.steps.length > 0
+      ? {
+          ...baseTopic,
+          steps: liveResult.steps,
+          traceSummary: liveResult.traceSummary
+        }
+      : baseTopic;
 
   const totalSteps = currentTopic.steps.length;
   const safeStepIndex = Math.min(stepIndex, totalSteps - 1);
   const currentStep = currentTopic.steps[safeStepIndex];
 
-  // Handle topic selection — automatically selects the #1 Recommended Beginner Problem for that topic
+  const markTopicCompleted = useCallback((id: string) => {
+    setCompletedTopics((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }, []);
+
+  const markProblemSolved = useCallback((id: string) => {
+    setSolvedProblems((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }, []);
+
+  // Run and visualize whatever code is currently in the Main Code Editor
+  const runAndVisualizeEditorCode = useCallback(
+    (codeToRun: string, problemToTest: PracticeProblem) => {
+      const result = executeAndVisualizeCode(
+        codeToRun,
+        problemToTest,
+        baseTopic.steps[0]?.boxes
+      );
+      setLiveResult(result);
+
+      if (!result.error && result.steps.length > 0) {
+        setStepIndex(0);
+        setIsPlaying(true);
+
+        // If all test cases for the active problem passed, mark it solved!
+        if (
+          result.testResults.length > 0 &&
+          result.testResults.every((tr) => tr.passed)
+        ) {
+          markProblemSolved(problemToTest.id);
+          const topicProbs = getProblemsForTopic(baseTopic.id);
+          const nextSolved = new Set([...solvedProblems, problemToTest.id]);
+          if (topicProbs.every((tp) => nextSolved.has(tp.id))) {
+            markTopicCompleted(baseTopic.id);
+          }
+        }
+      }
+    },
+    [baseTopic, solvedProblems, markProblemSolved, markTopicCompleted]
+  );
+
+  // Handle topic selection from sidebar or search
   const handleSelectTopic = (topicId: string) => {
     setIsPlaying(false);
-    setCustomRun(null);
+    setLiveResult(null);
     setSelectedTopicId(topicId);
+
     const nextTopic = ALL_CODEFLOW_TOPICS.find((t) => t.id === topicId);
     if (nextTopic) {
+      setEditorCode(nextTopic.code[language]);
       setStepIndex(nextTopic.defaultStep ? nextTopic.defaultStep - 1 : 0);
     } else {
       setStepIndex(0);
     }
+
     const topicProbs = getProblemsForTopic(topicId);
     if (topicProbs.length > 0) {
       setSelectedProblem(topicProbs[0]);
     }
+  };
+
+  // Handle language dropdown change
+  const handleLanguageChange = (newLang: CodeLanguage) => {
+    setLanguage(newLang);
+    setLiveResult(null);
+    setEditorCode(baseTopic.code[newLang]);
+  };
+
+  // Clicking on ANY problem in the Problem Set opens the Main Code Editor with blank starter template
+  const handleOpenProblemInEditor = (prob: PracticeProblem) => {
+    setIsPlaying(false);
+    setSelectedProblem(prob);
+    // Start with blank starter code by default (solution only shown on Show Answer)
+    setEditorCode(getBlankStarterCode(prob));
+    setShowPseudocode(false);
+    setLiveResult(null);
+    setStepIndex(0);
+
+    // Smoothly scroll up to the Main Code Editor so the user can immediately solve it
+    const editorEl = document.getElementById('main-code-editor-card');
+    if (editorEl) {
+      editorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // "Show Answer" button: reveals the final code required to pass all test cases and visualizes it
+  const handleShowAnswer = () => {
+    const finalSolution = selectedProblem.solutionCode;
+    setShowPseudocode(false);
+    setEditorCode(finalSolution);
+    runAndVisualizeEditorCode(finalSolution, selectedProblem);
   };
 
   // Auto-step playback when "Run" is clicked
@@ -157,20 +235,35 @@ export function App() {
   }, [isPlaying, totalSteps]);
 
   const handleRunToggle = useCallback(() => {
-    setIsPlaying((prevPlaying) => {
-      if (prevPlaying) {
-        return false;
-      }
-      setStepIndex((curr) => (curr >= totalSteps - 1 ? 0 : curr));
-      return true;
-    });
-  }, [totalSteps]);
+    if (isPlaying) {
+      setIsPlaying(false);
+      return;
+    }
+
+    // Execute & visualize the code in the Main Code Editor
+    if (editorCode.trim() !== baseTopic.code[language].trim()) {
+      runAndVisualizeEditorCode(editorCode, selectedProblem);
+      return;
+    }
+
+    setStepIndex((curr) => (curr >= totalSteps - 1 ? 0 : curr));
+    setIsPlaying(true);
+  }, [
+    isPlaying,
+    editorCode,
+    baseTopic,
+    language,
+    selectedProblem,
+    totalSteps,
+    runAndVisualizeEditorCode
+  ]);
 
   const handleReset = useCallback(() => {
     setIsPlaying(false);
-    setCustomRun(null);
+    setLiveResult(null);
+    setEditorCode(baseTopic.code[language]);
     setStepIndex(0);
-  }, []);
+  }, [baseTopic, language]);
 
   // Keyboard shortcuts: Space (Play/Pause), ArrowLeft (Prev Step), ArrowRight (Next Step)
   useEffect(() => {
@@ -195,16 +288,6 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [totalSteps, handleRunToggle]);
 
-  const handleApplyCustomInput = (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = generateCustomSteps(baseTopic.id, customArrayStr, customTargetStr);
-    if (res) {
-      setCustomRun(res);
-      setStepIndex(0);
-      setIsPlaying(true);
-    }
-  };
-
   const toggleFavourite = (id: string) => {
     setFavourites((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -215,14 +298,6 @@ export function App() {
     setCompletedTopics((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
-  };
-
-  const markTopicCompleted = (id: string) => {
-    setCompletedTopics((prev) => (prev.includes(id) ? prev : [...prev, id]));
-  };
-
-  const markProblemSolved = (id: string) => {
-    setSolvedProblems((prev) => (prev.includes(id) ? prev : [...prev, id]));
   };
 
   const handleResetProgress = () => {
@@ -238,7 +313,7 @@ export function App() {
       ? 'bg-[#DCFCE7] text-[#15803D] border-[#BBF7D0]'
       : currentTopic.difficulty === 'Hard'
       ? 'bg-[#F3E8FF] text-[#7E22CE] border-[#E9D5FF]'
-      : 'bg-[#DBEAFE] text-[#1D4ED8] border-[#BFDBFE]';
+      : 'bg-[#DBEAFE] text-[#1D4ED8] border-[#BFDBFE] dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800';
 
   const langBadgeMap: Record<CodeLanguage, { short: string; label: string; bg: string }> = {
     javascript: { short: 'JS', label: 'JavaScript', bg: 'bg-[#FACC15] text-slate-900' },
@@ -250,7 +325,7 @@ export function App() {
   return (
     <div
       className={`min-h-screen flex flex-col transition-colors ${
-        darkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#F4F7FB] text-[#1E293B]'
+        darkMode ? 'bg-slate-950 text-slate-100' : 'bg-[#F5F2EB] text-[#1E293B]'
       }`}
     >
       {/* Top Header Bar */}
@@ -262,7 +337,7 @@ export function App() {
         onSelectTopic={handleSelectTopic}
         onSelectProblem={(prob) => {
           handleSelectTopic(prob.topicId);
-          setSelectedProblem(prob);
+          handleOpenProblemInEditor(prob);
         }}
         darkMode={darkMode}
         onToggleDarkMode={() => setDarkMode(!darkMode)}
@@ -277,8 +352,8 @@ export function App() {
         onResetProgress={handleResetProgress}
       />
 
-      {/* Main Body Layout: Left Sidebar + Right Content Workspace */}
-      <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
+      {/* Main Body Layout: Left Sidebar fills the left edge + Right Content Workspace */}
+      <div className="flex-1 flex w-full">
         <LeftSidebar
           topics={ALL_CODEFLOW_TOPICS}
           selectedTopicId={currentTopic.id}
@@ -292,8 +367,27 @@ export function App() {
           favourites={favourites}
         />
 
-        {/* Main Workspace automatically expands smoothly when sidebar is hidden */}
-        <main className="flex-1 min-w-0 p-4 sm:p-5 lg:p-6 space-y-4 transition-all duration-300 ease-in-out">
+        {/* Main Workspace fills remaining width and scrolls independently */}
+        <main className="flex-1 min-w-0 max-w-[1600px] p-4 sm:p-5 lg:p-6 space-y-4 transition-all duration-300 ease-in-out">
+          {/* Collapsed Sidebar Toggle Button: Positioned directly below the main header, aligned right underneath the CodeFlow logo */}
+          {!sidebarVisible && (
+            <div className="hidden lg:flex items-center -mt-1 mb-1">
+              <button
+                onClick={() => setSidebarVisible(true)}
+                title="Show Sidebar"
+                aria-label="Show Sidebar"
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
+                  darkMode
+                    ? 'border-slate-700 bg-slate-900 text-amber-400 hover:bg-slate-800 hover:text-amber-300'
+                    : 'border-[#E0D9CB] bg-[#FAF8F5] text-slate-700 hover:bg-[#F2EEE5] hover:text-[#2563EB]'
+                }`}
+              >
+                <PanelLeftOpen className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />
+                <span>Show Sidebar</span>
+              </button>
+            </div>
+          )}
+
           {/* 1. Topic Header & Structured Roadmap Breadcrumb Section */}
           <div className="space-y-1.5">
             {/* Breadcrumb */}
@@ -303,7 +397,11 @@ export function App() {
                 {currentTopic.learningPhase && (
                   <>
                     <ChevronRight className="w-3.5 h-3.5" />
-                    <span className="text-[#2563EB] font-semibold">
+                    <span
+                      className={`font-semibold ${
+                        darkMode ? 'text-amber-400' : 'text-[#2563EB]'
+                      }`}
+                    >
                       {currentTopic.learningPhase}
                     </span>
                   </>
@@ -334,7 +432,7 @@ export function App() {
                 </span>
               </div>
 
-              {/* Right Controls: Mastered Toggle + Add to Favourites + Top Step Counter */}
+              {/* Right Controls: Mastered Toggle + Add to Favourites */}
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => toggleCompletedTopic(currentTopic.id)}
@@ -343,7 +441,7 @@ export function App() {
                       ? 'bg-[#DCFCE7] border-[#86EFAC] text-[#15803D] dark:bg-emerald-950/50 dark:border-emerald-700 dark:text-emerald-300'
                       : darkMode
                       ? 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-                      : 'bg-white border-[#E2E8F0] text-[#334155] hover:bg-slate-50 shadow-2xs'
+                      : 'bg-[#FAF8F5] border-[#E0D9CB] text-[#334155] hover:bg-[#F2EEE5] shadow-2xs'
                   }`}
                 >
                   <CheckCircle2
@@ -361,7 +459,7 @@ export function App() {
                       ? 'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-950/50 dark:border-amber-700 dark:text-amber-300'
                       : darkMode
                       ? 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-                      : 'bg-white border-[#E2E8F0] text-[#334155] hover:bg-slate-50 shadow-2xs'
+                      : 'bg-[#FAF8F5] border-[#E0D9CB] text-[#334155] hover:bg-[#F2EEE5] shadow-2xs'
                   }`}
                 >
                   <Star
@@ -371,43 +469,6 @@ export function App() {
                   />
                   <span>{isFav ? 'Added to Favourites' : 'Add to Favourites'}</span>
                 </button>
-
-                {/* Top-Right Compact Stepper < 3 / 8 > */}
-                <div
-                  className={`flex items-center rounded-lg border text-xs font-semibold overflow-hidden ${
-                    darkMode
-                      ? 'bg-slate-900 border-slate-800 text-slate-200'
-                      : 'bg-white border-[#E2E8F0] text-[#334155] shadow-2xs'
-                  }`}
-                >
-                  <button
-                    onClick={() => {
-                      setIsPlaying(false);
-                      setStepIndex((s) => Math.max(0, s - 1));
-                    }}
-                    disabled={safeStepIndex === 0}
-                    className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 transition-colors cursor-pointer"
-                    aria-label="Previous step"
-                    title="Previous step (←)"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="px-2.5 py-1.5 border-x border-[#E2E8F0] dark:border-slate-800 font-mono text-[11.5px]">
-                    {safeStepIndex + 1} / {totalSteps}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setIsPlaying(false);
-                      setStepIndex((s) => Math.min(totalSteps - 1, s + 1));
-                    }}
-                    disabled={safeStepIndex >= totalSteps - 1}
-                    className="px-2.5 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-35 transition-colors cursor-pointer"
-                    aria-label="Next step"
-                    title="Next step (→)"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -429,7 +490,7 @@ export function App() {
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold ${
                   darkMode
                     ? 'bg-slate-900 border-slate-800 text-slate-200'
-                    : 'bg-white border-[#E2E8F0] text-[#1E293B] shadow-2xs'
+                    : 'bg-[#FAF8F5] border-[#E0D9CB] text-[#1E293B] shadow-2xs'
                 }`}
               >
                 <span
@@ -439,7 +500,7 @@ export function App() {
                 </span>
                 <select
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value as CodeLanguage)}
+                  onChange={(e) => handleLanguageChange(e.target.value as CodeLanguage)}
                   aria-label="Select programming language"
                   className="bg-transparent pr-4 focus:outline-none cursor-pointer font-semibold text-xs appearance-none"
                 >
@@ -466,7 +527,7 @@ export function App() {
                 className={`flex items-center rounded-lg border text-xs font-semibold ${
                   darkMode
                     ? 'bg-slate-900 border-slate-800 text-slate-200'
-                    : 'bg-white border-[#E2E8F0] text-[#334155] shadow-2xs'
+                    : 'bg-[#FAF8F5] border-[#E0D9CB] text-[#334155] shadow-2xs'
                 }`}
               >
                 <button
@@ -480,7 +541,7 @@ export function App() {
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
-                <span className="px-3.5 py-1.5 border-x border-[#E2E8F0] dark:border-slate-800 text-xs">
+                <span className="px-3.5 py-1.5 border-x border-[#E0D9CB] dark:border-slate-800 text-xs">
                   Step{' '}
                   <strong className="font-bold">
                     {safeStepIndex + 1} / {totalSteps}
@@ -502,7 +563,11 @@ export function App() {
               <button
                 onClick={handleRunToggle}
                 title="Run / Pause (Space)"
-                className="px-4 py-1.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                className={`px-4 py-1.5 rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  darkMode
+                    ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold'
+                    : 'bg-[#2563EB] hover:bg-[#1D4ED8] text-white'
+                }`}
               >
                 {isPlaying ? (
                   <>
@@ -522,7 +587,7 @@ export function App() {
                 className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                   darkMode
                     ? 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-                    : 'bg-white border-[#E2E8F0] text-[#334155] hover:bg-slate-50 shadow-2xs'
+                    : 'bg-[#FAF8F5] border-[#E0D9CB] text-[#334155] hover:bg-[#F2EEE5] shadow-2xs'
                 }`}
               >
                 <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
@@ -530,183 +595,88 @@ export function App() {
               </button>
             </div>
 
-            {/* Right: Demo Algorithm Mode Selector + Custom Input Toggle */}
+            {/* Right: Pseudocode + Show Answer Buttons */}
             <div className="flex items-center gap-2">
-              {currentTopic.pillar === 'DSA' && (
-                <button
-                  onClick={() => setShowCustomInput((prev) => !prev)}
-                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    showCustomInput || customRun
-                      ? 'bg-[#E8F1FF] border-[#3B82F6] text-[#1D4ED8]'
-                      : darkMode
-                      ? 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
-                      : 'bg-white border-[#E2E8F0] text-[#334155] hover:bg-slate-50 shadow-2xs'
-                  }`}
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-[#2563EB]" />
-                  <span>Custom Input</span>
-                </button>
-              )}
-
-              <div
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold ${
-                  darkMode
-                    ? 'bg-slate-900 border-slate-800 text-slate-200'
-                    : 'bg-white border-[#E2E8F0] text-[#334155] shadow-2xs'
+              <button
+                onClick={() => setShowPseudocode((p) => !p)}
+                title={`Show pseudocode for #${selectedProblem.number}. ${selectedProblem.title}`}
+                className={`px-3.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  showPseudocode
+                    ? darkMode
+                      ? 'bg-amber-950/70 border-amber-700 text-amber-300'
+                      : 'bg-[#EAE4D8] border-[#D0C6B5] text-[#1E293B]'
+                    : darkMode
+                    ? 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+                    : 'bg-[#FAF8F5] border-[#E0D9CB] text-[#334155] hover:bg-[#F2EEE5] shadow-2xs'
                 }`}
               >
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                <FileCode2 className="w-3.5 h-3.5 text-[#2563EB]" />
-                <select
-                  value={demoMode}
-                  onChange={(e) => {
-                    setDemoMode(e.target.value);
-                    if (e.target.value === 'Custom Input') {
-                      setShowCustomInput(true);
-                    } else if (e.target.value === 'Step 1 Start') {
-                      setCustomRun(null);
-                      setStepIndex(0);
-                    } else if (e.target.value === 'Final Result') {
-                      setStepIndex(totalSteps - 1);
-                    } else {
-                      setCustomRun(null);
-                      setStepIndex(
-                        baseTopic.defaultStep ? baseTopic.defaultStep - 1 : 0
-                      );
-                    }
-                  }}
-                  aria-label="Select demo mode"
-                  className="bg-transparent pr-4 focus:outline-none cursor-pointer text-xs font-semibold appearance-none"
-                >
-                  <option value="Demo Algorithm" className="text-slate-900">
-                    Demo Algorithm
-                  </option>
-                  <option value="Step 1 Start" className="text-slate-900">
-                    Start from Step 1
-                  </option>
-                  <option value="Final Result" className="text-slate-900">
-                    Jump to Final Output
-                  </option>
-                  <option value="Custom Input" className="text-slate-900">
-                    Custom Array / Target
-                  </option>
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 -ml-3 pointer-events-none" />
-              </div>
+                <FileText
+                  className={`w-3.5 h-3.5 ${
+                    darkMode ? 'text-amber-400' : 'text-[#2563EB]'
+                  }`}
+                />
+                <span>Pseudocode</span>
+              </button>
+
+              <button
+                onClick={handleShowAnswer}
+                title={`Reveal final solution code for #${selectedProblem.number}. ${selectedProblem.title} and visualize all test cases`}
+                className={`px-3.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  darkMode
+                    ? 'bg-emerald-950/60 border-emerald-700 text-emerald-300 hover:bg-emerald-900/70'
+                    : 'bg-[#ECFDF5] border-[#A7F3D0] text-[#15803D] hover:bg-[#D1FAE5] shadow-2xs'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5 text-[#16A34A]" />
+                <span>Show Answer</span>
+              </button>
             </div>
           </div>
 
-          {/* Optional Expandable Custom Input Bar with Topic-Aware Labels & Presets */}
-          {showCustomInput && currentTopic.pillar === 'DSA' && (
-            <form
-              onSubmit={handleApplyCustomInput}
-              className={`rounded-xl border px-4 py-3 space-y-2.5 transition-all ${
+          {showPseudocode && (
+            <div
+              className={`rounded-xl border p-4 ${
                 darkMode
-                  ? 'bg-slate-900 border-slate-800'
-                  : 'bg-white border-[#BFDBFE] shadow-2xs'
+                  ? 'bg-slate-900 border-slate-800 text-slate-200'
+                  : 'bg-[#FAF8F5] border-[#E0D9CB] text-[#1E293B] shadow-[0_1px_3px_rgba(40,30,20,0.04)]'
               }`}
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-3 flex-1">
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-bold text-[#2563EB]">
-                      {customMeta.arrayLabel}
-                    </label>
-                    <input
-                      type="text"
-                      value={customArrayStr}
-                      onChange={(e) => setCustomArrayStr(e.target.value)}
-                      placeholder={customMeta.defaultArray}
-                      className={`px-2.5 py-1 rounded-lg border font-mono text-xs w-52 sm:w-64 focus:outline-none focus:border-blue-500 ${
-                        darkMode
-                          ? 'bg-slate-950 border-slate-700 text-slate-100'
-                          : 'bg-[#F8FAFC] border-slate-200 text-slate-800'
-                      }`}
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-bold text-[#2563EB]">
-                      {customMeta.targetLabel}
-                    </label>
-                    <input
-                      type="text"
-                      value={customTargetStr}
-                      onChange={(e) => setCustomTargetStr(e.target.value)}
-                      placeholder={customMeta.defaultTarget}
-                      className={`px-2.5 py-1 rounded-lg border font-mono text-xs w-20 focus:outline-none focus:border-blue-500 ${
-                        darkMode
-                          ? 'bg-slate-950 border-slate-700 text-slate-100'
-                          : 'bg-[#F8FAFC] border-slate-200 text-slate-800'
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {customRun && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCustomRun(null);
-                        setStepIndex(0);
-                      }}
-                      className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-500 hover:text-slate-800 cursor-pointer"
-                    >
-                      Reset Default
-                    </button>
-                  )}
-                  <button
-                    type="submit"
-                    className="px-3.5 py-1.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold shadow-2xs cursor-pointer"
-                  >
-                    Apply & Animate
-                  </button>
-                </div>
-              </div>
-
-              {/* Quick 1-Click Presets */}
-              <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
-                <span className="text-[10.5px] font-semibold text-slate-400 mr-1">
-                  Quick Presets:
+              <div className="flex items-center justify-between mb-2">
+                <span
+                  className={`text-xs font-bold flex items-center gap-1.5 ${
+                    darkMode ? 'text-amber-400' : 'text-[#2563EB]'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Pseudocode · #{selectedProblem.number}. {selectedProblem.title}
                 </span>
-                {customMeta.presets.map((preset) => (
-                  <button
-                    key={preset.label}
-                    type="button"
-                    onClick={() => {
-                      setCustomArrayStr(preset.arr);
-                      setCustomTargetStr(preset.target);
-                      const res = generateCustomSteps(
-                        baseTopic.id,
-                        preset.arr,
-                        preset.target
-                      );
-                      if (res) {
-                        setCustomRun(res);
-                        setStepIndex(0);
-                        setIsPlaying(true);
-                      }
-                    }}
-                    className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors cursor-pointer ${
-                      darkMode
-                        ? 'bg-slate-950 border-slate-800 text-slate-300 hover:border-blue-500'
-                        : 'bg-[#F8FAFC] border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-[#2563EB] hover:border-blue-200'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
+                <button
+                  onClick={() => setShowPseudocode(false)}
+                  className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  aria-label="Close pseudocode"
+                >
+                  <X className="w-3.5 h-3.5 text-slate-500" />
+                </button>
               </div>
-            </form>
+              <pre className="text-[12px] leading-relaxed font-mono whitespace-pre-wrap overflow-x-auto">
+                {generatePseudocode(selectedProblem)}
+              </pre>
+            </div>
           )}
 
           {/* 3. Main Two-Column Split: Code Editor Card + Execution Visualizer Card */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <CodeEditorCard
-              code={currentTopic.code[language]}
+              code={editorCode}
+              onCodeChange={(newCode) => setEditorCode(newCode)}
+              onRunAndVisualize={() =>
+                runAndVisualizeEditorCode(editorCode, selectedProblem)
+              }
               activeLine={currentStep.activeLine}
               darkMode={darkMode}
+              activeProblem={selectedProblem}
+              executionError={liveResult?.error}
+              testResults={liveResult?.testResults}
             />
 
             <ExecutionVisualizerCard
@@ -721,23 +691,16 @@ export function App() {
             />
           </div>
 
-          {/* 4. Bottom Workspace: Topic-Filtered Problem Set + Guided Onboarding + Explorer */}
+          {/* 4. Bottom Workspace: Topic-Filtered Problem Set + Guided Onboarding */}
           <BottomWorkspace
             problems={PRACTICE_PROBLEMS}
             selectedProblem={selectedProblem}
-            onSelectProblem={(prob) => setSelectedProblem(prob)}
-            onStartSolving={(prob) => {
-              setSelectedProblem(prob);
-              setStepIndex(0);
-              setIsPlaying(true);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
+            onSelectProblem={handleOpenProblemInEditor}
+            onStartSolving={handleOpenProblemInEditor}
             currentTopic={currentTopic}
             currentStep={currentStep}
             darkMode={darkMode}
             solvedProblems={solvedProblems}
-            onMarkProblemSolved={markProblemSolved}
-            onMarkTopicCompleted={markTopicCompleted}
           />
         </main>
       </div>

@@ -40,7 +40,7 @@ import {
   Globe,
   FolderGit2,
   ShieldCheck,
-  PanelLeftOpen,
+  PanelLeftClose,
   CheckCircle2,
   Star
 } from 'lucide-react';
@@ -173,25 +173,29 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
                 isExpanded
                   ? darkMode
-                    ? 'bg-blue-950/60 border-blue-800 text-blue-300'
-                    : 'bg-[#E8F0FE] border-[#C6DAFC] text-[#1E40AF]'
+                    ? 'bg-amber-950/60 border-amber-700/60 text-amber-300'
+                    : 'bg-[#FAF8F5] border-[#D8D0C0] text-[#1E293B]'
                   : darkMode
-                  ? 'bg-slate-800/70 border-slate-700/80 text-slate-200 hover:bg-slate-800'
-                  : 'bg-[#EEF3FA] border-[#DCE5F2] text-[#1E293B] hover:bg-[#E4ECF7]'
+                  ? 'bg-slate-800/80 border-slate-700/80 text-slate-200 hover:bg-slate-800'
+                  : 'bg-[#E7E2D6] border-[#DCD5C5] text-[#334155] hover:bg-[#DDD5C3]'
               }`}
             >
               <span className="flex items-center gap-2">
-                <PillarIcon className="w-3.5 h-3.5 text-[#2563EB] shrink-0" />
+                <PillarIcon
+                  className={`w-3.5 h-3.5 shrink-0 ${
+                    darkMode ? 'text-amber-400' : 'text-[#2563EB]'
+                  }`}
+                />
                 <span>{pillar.label}</span>
                 <span
                   className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
                     isExpanded
                       ? darkMode
-                        ? 'bg-blue-900/60 text-blue-200'
-                        : 'bg-blue-200/70 text-[#1E40AF]'
+                        ? 'bg-amber-900/60 text-amber-200'
+                        : 'bg-[#EFECE4] text-[#1E293B]'
                       : darkMode
                       ? 'bg-slate-700 text-slate-400'
-                      : 'bg-slate-200/80 text-slate-500'
+                      : 'bg-[#DCD5C5] text-slate-600'
                   }`}
                 >
                   {completedInPillar > 0
@@ -237,7 +241,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                           {showPhaseHeader && (
                             <div
                               className={`px-2 pt-2.5 pb-1 text-[10px] font-extrabold uppercase tracking-wider flex items-center justify-between ${
-                                darkMode ? 'text-blue-400/90' : 'text-[#2563EB]'
+                                darkMode ? 'text-amber-400' : 'text-[#854D0E]'
                               }`}
                             >
                               <span>{topic.learningPhase}</span>
@@ -249,11 +253,11 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                             className={`w-full flex items-center justify-between gap-1.5 px-2.5 py-[5.5px] rounded-md text-[12px] transition-colors text-left cursor-pointer ${
                               isSelected
                                 ? darkMode
-                                  ? 'bg-blue-600/25 text-blue-300 font-semibold'
-                                  : 'bg-[#DCE8FF] text-[#1D4ED8] font-semibold'
+                                  ? 'bg-amber-500/15 border border-amber-500/40 text-amber-300 font-bold'
+                                  : 'bg-[#FAF8F5] border border-[#D8D0C0] text-[#1E293B] font-bold shadow-2xs'
                                 : darkMode
-                                ? 'text-slate-300 hover:bg-slate-800/70'
-                                : 'text-[#334155] hover:bg-slate-200/60'
+                                ? 'text-slate-300 hover:bg-slate-800/70 border border-transparent'
+                                : 'text-[#334155] hover:bg-[#E7E2D6] border border-transparent'
                             }`}
                           >
                             <span className="flex items-center gap-2 min-w-0">
@@ -261,7 +265,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                                 <span
                                   className={`text-[10px] font-mono w-4 shrink-0 ${
                                     isSelected
-                                      ? 'text-[#2563EB] font-bold'
+                                      ? darkMode
+                                        ? 'text-amber-400 font-bold'
+                                        : 'text-[#2563EB] font-bold'
                                       : 'text-slate-400'
                                   }`}
                                 >
@@ -271,7 +277,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                               <Icon
                                 className={`w-3.5 h-3.5 shrink-0 ${
                                   isSelected
-                                    ? 'text-[#2563EB]'
+                                    ? darkMode
+                                      ? 'text-amber-400'
+                                      : 'text-[#2563EB]'
                                     : darkMode
                                     ? 'text-slate-400'
                                     : 'text-slate-500'
@@ -309,45 +317,39 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
   return (
     <>
-      {/* Quick Floating Restore Pill when Desktop Sidebar is hidden */}
-      {!sidebarVisible && (
-        <button
-          onClick={onToggleSidebar}
-          title="Expand Topics Sidebar"
-          className={`hidden lg:flex fixed bottom-5 left-4 z-30 items-center gap-2 px-3 py-2 rounded-full border shadow-md text-xs font-bold transition-all cursor-pointer ${
-            darkMode
-              ? 'bg-slate-900 border-slate-700 text-blue-300 hover:bg-slate-800'
-              : 'bg-white border-[#BFDBFE] text-[#2563EB] hover:bg-blue-50'
-          }`}
-        >
-          <PanelLeftOpen className="w-4 h-4" />
-          <span>Topics</span>
-        </button>
-      )}
-
-      {/* Desktop Left Sidebar with Smooth Collapse/Expand Transition */}
+      {/* Desktop Left Sidebar:
+          - Fills the empty gap along the left edge of the screen
+          - Scrolls independently with sticky top-14 h-[calc(100vh-3.5rem)]
+          - When collapsed, sidebar width becomes 0 with no border and floating button removed
+      */}
       <aside
-        className={`hidden lg:flex flex-col shrink-0 border-r select-none transition-all duration-300 ease-in-out overflow-hidden ${
+        className={`hidden lg:flex flex-col shrink-0 border-r select-none sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto transition-all duration-300 ease-in-out ${
           sidebarVisible
             ? 'w-[264px] opacity-100'
-            : 'w-0 opacity-0 border-r-0 pointer-events-none'
+            : 'w-0 opacity-0 border-r-0 pointer-events-none overflow-hidden'
         } ${
           darkMode
-            ? 'bg-slate-900/60 border-slate-800'
-            : 'bg-[#F5F8FC] border-[#E4EAF3]'
+            ? 'bg-slate-900 border-slate-800'
+            : 'bg-[#EFECE4] border-[#E2DCD0]'
         }`}
       >
-        <div className="w-[264px] p-3 flex flex-col gap-2">
+        <div className="w-[264px] p-3 flex flex-col gap-2 min-h-full">
+          {/* Header: Structured Learning Path + Repositioned Hide/Show Sidebar Button */}
           <div className="flex items-center justify-between px-1 pb-1">
             <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
               Structured Learning Path
             </span>
             <button
               onClick={onToggleSidebar}
-              className="text-[11px] font-medium text-slate-400 hover:text-[#2563EB] transition-colors cursor-pointer"
-              title="Collapse Sidebar"
+              className={`p-1 rounded-md border transition-all cursor-pointer ${
+                darkMode
+                  ? 'border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-amber-400'
+                  : 'border-[#E2DCD0] bg-[#FAF8F5] text-slate-500 hover:bg-[#EAE4D8] hover:text-[#2563EB]'
+              }`}
+              title="Hide Sidebar"
+              aria-label="Hide Sidebar"
             >
-              Hide
+              <PanelLeftClose className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -364,7 +366,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           />
           <aside
             className={`relative w-72 max-w-[85vw] h-full overflow-y-auto p-3 flex flex-col gap-2 z-10 ${
-              darkMode ? 'bg-slate-900 text-slate-100' : 'bg-[#F5F8FC] text-slate-800'
+              darkMode
+                ? 'bg-slate-900 text-slate-100 border-r border-slate-800'
+                : 'bg-[#EFECE4] text-slate-800 border-r border-[#E2DCD0]'
             }`}
           >
             <div className="flex items-center justify-between px-1 pb-1">
@@ -373,7 +377,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
               </span>
               <button
                 onClick={onCloseMobile}
-                className="text-xs font-medium text-slate-400 hover:text-slate-600"
+                className="text-xs font-medium text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 Close
               </button>

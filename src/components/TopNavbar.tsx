@@ -7,15 +7,20 @@ import {
   Code2,
   Menu,
   X,
-  PanelLeftClose,
   PanelLeftOpen,
   Star,
-  CheckCircle2,
-  Trophy,
   Trash2,
-  ArrowRight
+  User,
+  Settings,
+  Sliders,
+  Keyboard,
+  HelpCircle,
+  LogOut,
+  LogIn,
+  Shield,
+  Check
 } from 'lucide-react';
-import { TopicData, PracticeProblem, PillarId } from '../types/codeflow';
+import { TopicData, PracticeProblem } from '../types/codeflow';
 
 interface TopNavbarProps {
   searchQuery: string;
@@ -52,14 +57,14 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   onToggleSidebar,
   favourites,
   onToggleFavourite,
-  completedTopics,
-  solvedProblems,
-  onResetProgress
+  completedTopics
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [favDrawerOpen, setFavDrawerOpen] = useState(false);
-  const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [activeModal, setActiveModal] = useState<string | null>(null);
 
   // Press '/' to focus search bar
   useEffect(() => {
@@ -77,7 +82,8 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
       } else if (e.key === 'Escape') {
         setDropdownOpen(false);
         setFavDrawerOpen(false);
-        setProfileDrawerOpen(false);
+        setAccountMenuOpen(false);
+        setActiveModal(null);
         inputRef.current?.blur();
       }
     };
@@ -102,21 +108,16 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
     : [];
 
   const favouriteTopics = allTopics.filter((t) => favourites.includes(t.id));
-  const masteryPercent = Math.round(
-    (completedTopics.length / Math.max(1, allTopics.length)) * 100
-  );
-
-  const pillarsList: PillarId[] = ['DSA', 'Backend', 'System Design', 'Web Dev'];
 
   return (
     <header
       className={`sticky top-0 z-40 h-14 px-4 lg:px-6 border-b transition-colors flex items-center justify-between gap-4 ${
         darkMode
           ? 'bg-slate-900/95 border-slate-800 text-slate-100'
-          : 'bg-white/95 border-[#E5EAF2] text-slate-800'
+          : 'bg-[#FAF8F5]/95 border-[#E5DFD3] text-slate-800'
       } backdrop-blur-md`}
     >
-      {/* Left: Sidebar Toggle + Brand Logo */}
+      {/* Left: Mobile menu toggle + Brand Logo (desktop sidebar toggle moved directly underneath the CodeFlow logo per user request) */}
       <div className="flex items-center gap-2.5 shrink-0">
         {/* Mobile menu button (< lg) */}
         <button
@@ -124,41 +125,23 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           className={`lg:hidden p-1.5 rounded-lg border transition-colors ${
             darkMode
               ? 'border-slate-700 text-slate-300 hover:bg-slate-800'
-              : 'border-slate-200 text-slate-600 hover:bg-slate-100'
+              : 'border-[#E2DCD0] bg-[#FAF8F5] text-slate-600 hover:bg-[#EAE4D8]'
           }`}
           aria-label="Toggle Mobile Menu"
         >
           {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
         </button>
 
-        {/* Desktop Sidebar Visibility Toggle (lg+) */}
-        <button
-          onClick={onToggleSidebar}
-          title={sidebarVisible ? 'Hide Sidebar' : 'Show Sidebar'}
-          aria-label={sidebarVisible ? 'Hide Sidebar' : 'Show Sidebar'}
-          className={`hidden lg:flex items-center justify-center p-1.5 rounded-lg border transition-all cursor-pointer ${
-            darkMode
-              ? 'border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white'
-              : 'border-[#E2E8F0] text-slate-600 hover:bg-slate-100 hover:text-[#2563EB]'
-          }`}
-        >
-          {sidebarVisible ? (
-            <PanelLeftClose className="w-4 h-4" />
-          ) : (
-            <PanelLeftOpen className="w-4 h-4 text-[#2563EB]" />
-          )}
-        </button>
-
         <div
           onClick={() => onSelectTopic('binary-search')}
           className="flex items-center gap-2.5 cursor-pointer select-none"
         >
-          <div className="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
+          <div className="w-8 h-8 rounded-lg bg-[#2563EB] dark:bg-amber-500 flex items-center justify-center text-white dark:text-slate-950 shadow-sm shadow-blue-500/20 dark:shadow-amber-500/20 font-bold">
             <Code2 className="w-4 h-4 stroke-[2.5]" />
           </div>
           <span className="text-[19px] font-extrabold tracking-tight">
             <span className={darkMode ? 'text-white' : 'text-[#0F172A]'}>Code</span>
-            <span className="text-[#2563EB]">Flow</span>
+            <span className="text-[#2563EB] dark:text-amber-400">Flow</span>
           </span>
         </div>
       </div>
@@ -168,8 +151,8 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         <div
           className={`flex items-center rounded-lg border px-3 py-1.5 transition-all ${
             darkMode
-              ? 'bg-slate-800/80 border-slate-700 focus-within:border-blue-500'
-              : 'bg-[#F8FAFC] border-[#E2E8F0] focus-within:bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/10'
+              ? 'bg-slate-800/80 border-slate-700 focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-400/20'
+              : 'bg-[#F2EEE5] border-[#E0D9CB] focus-within:bg-[#FAF8F5] focus-within:border-[#2563EB] focus-within:ring-2 focus-within:ring-blue-500/10'
           }`}
         >
           <Search className="w-4 h-4 text-slate-400 mr-2.5 shrink-0" />
@@ -187,14 +170,14 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             className={`w-full text-xs sm:text-[13px] bg-transparent focus:outline-none ${
               darkMode
                 ? 'text-slate-100 placeholder:text-slate-400'
-                : 'text-slate-700 placeholder:text-slate-400'
+                : 'text-slate-800 placeholder:text-slate-400'
             }`}
           />
           <kbd
             className={`ml-2 px-1.5 py-0.5 text-[10px] font-mono rounded border shrink-0 ${
               darkMode
                 ? 'bg-slate-900 border-slate-700 text-slate-400'
-                : 'bg-white border-slate-200 text-slate-400 shadow-2xs'
+                : 'bg-[#FAF8F5] border-[#E0D9CB] text-slate-500 shadow-2xs'
             }`}
           >
             /
@@ -207,7 +190,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             className={`absolute left-0 right-0 mt-1.5 rounded-xl border shadow-xl overflow-hidden z-50 ${
               darkMode
                 ? 'bg-slate-900 border-slate-700 text-slate-100'
-                : 'bg-white border-slate-200 text-slate-800'
+                : 'bg-[#FAF8F5] border-[#E2DCD0] text-slate-800'
             }`}
           >
             {filteredTopics.length === 0 && filteredProblems.length === 0 ? (
@@ -230,11 +213,11 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                           setDropdownOpen(false);
                         }}
                         className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between ${
-                          darkMode ? 'hover:bg-slate-800' : 'hover:bg-blue-50/80'
+                          darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
                         }`}
                       >
                         <span className="font-medium">{t.title}</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-amber-950/60 dark:text-amber-300">
                           {t.pillar}
                         </span>
                       </button>
@@ -256,7 +239,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                           setDropdownOpen(false);
                         }}
                         className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between ${
-                          darkMode ? 'hover:bg-slate-800' : 'hover:bg-blue-50/80'
+                          darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
                         }`}
                       >
                         <span className="font-medium">
@@ -275,26 +258,26 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         )}
       </div>
 
-      {/* Right: Utility Icons (Favourites & Milestones, Dark Mode, User Progress Profile) */}
+      {/* Right: Utility Icons (Favourites, Dark Mode, User Account Options Menu) */}
       <div className="relative flex items-center gap-2 sm:gap-3 shrink-0">
-        {/* Bell / Favourites & Activity Drawer Button */}
+        {/* Bell / Favourites Drawer Button */}
         <button
           onClick={() => {
             setFavDrawerOpen((prev) => !prev);
-            setProfileDrawerOpen(false);
+            setAccountMenuOpen(false);
           }}
-          title="Saved Favourites & Learning Activity"
+          title="Saved Favourites"
           className={`p-2 rounded-lg transition-colors relative cursor-pointer ${
             favDrawerOpen
-              ? 'bg-blue-50 text-[#2563EB] dark:bg-slate-800 dark:text-blue-400'
+              ? 'bg-[#EFECE4] text-[#2563EB] dark:bg-slate-800 dark:text-amber-400'
               : darkMode
               ? 'text-slate-300 hover:bg-slate-800'
-              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+              : 'text-slate-500 hover:bg-[#EFECE4] hover:text-slate-700'
           }`}
         >
           <Bell className="w-4 h-4" />
-          {(favourites.length > 0 || completedTopics.length > 0) && (
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 absolute top-2 right-2" />
+          {favourites.length > 0 && (
+            <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] dark:bg-amber-400 absolute top-2 right-2" />
           )}
         </button>
 
@@ -304,34 +287,36 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           className={`p-2 rounded-lg transition-colors cursor-pointer ${
             darkMode
-              ? 'text-amber-300 hover:bg-slate-800'
-              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+              ? 'text-amber-400 hover:bg-slate-800'
+              : 'text-slate-500 hover:bg-[#EFECE4] hover:text-slate-700'
           }`}
         >
           {darkMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
         </button>
 
-        {/* User Profile & Mastery Dashboard Avatar */}
+        {/* User Account Options Button (Repurposed from Progress Dashboard) */}
         <button
           onClick={() => {
-            setProfileDrawerOpen((prev) => !prev);
+            setAccountMenuOpen((prev) => !prev);
             setFavDrawerOpen(false);
           }}
-          title="Learner Progress & Mastery Dashboard"
-          className={`w-7 h-7 rounded-full bg-[#3B82F6] text-white text-xs font-bold flex items-center justify-center shadow-xs select-none cursor-pointer transition-transform ${
-            profileDrawerOpen ? 'ring-2 ring-blue-400 scale-105' : 'hover:scale-105'
+          title="User Account Options"
+          className={`w-7 h-7 rounded-full bg-[#2563EB] dark:bg-amber-500 text-white dark:text-slate-950 text-xs font-bold flex items-center justify-center shadow-xs select-none cursor-pointer transition-transform ${
+            accountMenuOpen
+              ? 'ring-2 ring-blue-400 dark:ring-amber-400 scale-105'
+              : 'hover:scale-105'
           }`}
         >
           S
         </button>
 
-        {/* POPOVER 1: Saved Favourites & Activity Drawer */}
+        {/* POPOVER 1: Saved Favourites Drawer */}
         {favDrawerOpen && (
           <div
             className={`absolute right-0 top-12 w-80 rounded-xl border shadow-xl p-3.5 z-50 space-y-3 ${
               darkMode
                 ? 'bg-slate-900 border-slate-700 text-slate-100'
-                : 'bg-white border-[#E2E8F0] text-[#1E293B]'
+                : 'bg-[#FAF8F5] border-[#E2DCD0] text-[#1E293B]'
             }`}
           >
             <div className="flex items-center justify-between border-b pb-2 border-slate-100 dark:border-slate-800">
@@ -359,7 +344,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                     className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs ${
                       darkMode
                         ? 'bg-slate-950/60 border-slate-800'
-                        : 'bg-[#F8FAFC] border-slate-200/80'
+                        : 'bg-[#F2EEE5] border-[#E0D9CB]'
                     }`}
                   >
                     <button
@@ -367,7 +352,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                         onSelectTopic(t.id);
                         setFavDrawerOpen(false);
                       }}
-                      className="text-left font-semibold hover:text-[#2563EB] truncate flex-1 cursor-pointer"
+                      className="text-left font-semibold hover:text-[#2563EB] dark:hover:text-amber-400 truncate flex-1 cursor-pointer"
                     >
                       {t.title}
                       <span className="ml-1.5 text-[10px] font-normal text-slate-400">
@@ -385,119 +370,258 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                 ))}
               </div>
             )}
+          </div>
+        )}
 
-            <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
-              <span>Mastered Topics: {completedTopics.length}</span>
-              <span>Solved Problems: {solvedProblems.length}</span>
+        {/* POPOVER 2: Repurposed User Account Options Menu */}
+        {accountMenuOpen && (
+          <div
+            className={`absolute right-0 top-12 w-72 rounded-xl border shadow-xl p-3 z-50 space-y-2 ${
+              darkMode
+                ? 'bg-slate-900 border-slate-700 text-slate-100'
+                : 'bg-[#FAF8F5] border-[#E2DCD0] text-[#1E293B]'
+            }`}
+          >
+            {/* User Profile Header */}
+            <div className="flex items-center justify-between border-b pb-2.5 border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-[#2563EB] dark:bg-amber-500 text-white dark:text-slate-950 text-sm font-extrabold flex items-center justify-center shrink-0">
+                  S
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold truncate">Soaib</div>
+                  <div className="text-[11px] text-slate-400 truncate">soaib@codeflow.dev</div>
+                </div>
+              </div>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                {isLoggedIn ? 'Active' : 'Guest'}
+              </span>
+            </div>
+
+            {/* Account Options Navigation List */}
+            <div className="space-y-0.5 text-xs">
+              <button
+                onClick={() => {
+                  setActiveModal('profile');
+                  setAccountMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
+                  darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
+                }`}
+              >
+                <User className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />
+                <span className="font-medium flex-1">Profile & Account</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveModal('settings');
+                  setAccountMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
+                  darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
+                }`}
+              >
+                <Settings className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <span className="font-medium flex-1">Settings & Preferences</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveModal('editor');
+                  setAccountMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
+                  darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
+                }`}
+              >
+                <Sliders className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <span className="font-medium flex-1">Editor & Appearance</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveModal('shortcuts');
+                  setAccountMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
+                  darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
+                }`}
+              >
+                <Keyboard className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <span className="font-medium flex-1">Keyboard Shortcuts</span>
+                <span className="text-[10px] font-mono text-slate-400 border border-slate-300 dark:border-slate-700 px-1 rounded">
+                  /
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveModal('security');
+                  setAccountMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
+                  darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
+                }`}
+              >
+                <Shield className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <span className="font-medium flex-1">Privacy & Security</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveModal('help');
+                  setAccountMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
+                  darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
+                }`}
+              >
+                <HelpCircle className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <span className="font-medium flex-1">Help & Feedback</span>
+              </button>
+            </div>
+
+            {/* Divider & Login / Logout Action */}
+            <div className="pt-1 border-t border-slate-200 dark:border-slate-800">
+              <button
+                onClick={() => {
+                  setIsLoggedIn((prev) => !prev);
+                  setAccountMenuOpen(false);
+                }}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs font-semibold transition-colors cursor-pointer ${
+                  isLoggedIn
+                    ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+                    : 'text-[#2563EB] dark:text-amber-400 hover:bg-blue-50 dark:hover:bg-amber-950/40'
+                }`}
+              >
+                {isLoggedIn ? (
+                  <>
+                    <LogOut className="w-4 h-4" />
+                    <span>Log Out</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    <span>Log In</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         )}
 
-        {/* POPOVER 2: Learner Progress & Mastery Dashboard */}
-        {profileDrawerOpen && (
-          <div
-            className={`absolute right-0 top-12 w-84 rounded-xl border shadow-xl p-4 z-50 space-y-3.5 ${
-              darkMode
-                ? 'bg-slate-900 border-slate-700 text-slate-100'
-                : 'bg-white border-[#E2E8F0] text-[#1E293B]'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-[#2563EB] text-white text-sm font-extrabold flex items-center justify-center">
-                  S
-                </div>
-                <div>
-                  <div className="text-xs font-extrabold">Soaib — CodeFlow Learner</div>
-                  <div className="text-[11px] text-slate-400">
-                    Progress saved locally in browser
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => setProfileDrawerOpen(false)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Overall Mastery Bar */}
+        {/* Account Modal for Settings/Shortcuts/Profile when selected */}
+        {activeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
             <div
-              className={`p-3 rounded-lg border space-y-2 ${
-                darkMode ? 'bg-slate-950 border-slate-800' : 'bg-[#F8FAFC] border-[#E2E8F0]'
+              className={`w-full max-w-md rounded-xl border shadow-2xl p-5 space-y-4 ${
+                darkMode
+                  ? 'bg-slate-900 border-slate-700 text-slate-100'
+                  : 'bg-[#FAF8F5] border-[#E2DCD0] text-slate-800'
               }`}
             >
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold flex items-center gap-1.5">
-                  <Trophy className="w-3.5 h-3.5 text-[#2563EB]" /> Overall Platform Mastery
-                </span>
-                <span className="font-mono font-bold text-[#2563EB]">{masteryPercent}%</span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full bg-[#2563EB] transition-all duration-300"
-                  style={{ width: `${masteryPercent}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-500">
-                <span>
-                  {completedTopics.length} / {allTopics.length} Topics Mastered
-                </span>
-                <span>
-                  {solvedProblems.length} / {allProblems.length} Problems Solved
-                </span>
-              </div>
-            </div>
-
-            {/* Subject Breakdown */}
-            <div className="space-y-1.5">
-              <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
-                Subject Breakdown
-              </div>
-              {pillarsList.map((pil) => {
-                const total = allTopics.filter((t) => t.pillar === pil).length;
-                const done = allTopics.filter(
-                  (t) => t.pillar === pil && completedTopics.includes(t.id)
-                ).length;
-                return (
-                  <div
-                    key={pil}
-                    className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800/60 last:border-0"
-                  >
-                    <span className="font-medium">{pil}</span>
-                    <span className="font-mono text-[11px] text-[#16A34A] font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" />
-                      {done} / {total}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <button
-                onClick={() => {
-                  const nextTopic =
-                    allTopics.find((t) => !completedTopics.includes(t.id)) || allTopics[0];
-                  onSelectTopic(nextTopic.id);
-                  setProfileDrawerOpen(false);
-                }}
-                className="flex-1 px-3 py-1.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span>Next Unmastered Topic</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-
-              {(completedTopics.length > 0 || solvedProblems.length > 0) && (
+              <div className="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-2 text-sm font-bold capitalize">
+                  {activeModal === 'profile' && <User className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />}
+                  {activeModal === 'settings' && <Settings className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />}
+                  {activeModal === 'editor' && <Sliders className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />}
+                  {activeModal === 'shortcuts' && <Keyboard className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />}
+                  {activeModal === 'security' && <Shield className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />}
+                  {activeModal === 'help' && <HelpCircle className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />}
+                  <span>
+                    {activeModal === 'shortcuts'
+                      ? 'Keyboard Shortcuts'
+                      : activeModal === 'editor'
+                      ? 'Editor & Appearance'
+                      : activeModal === 'security'
+                      ? 'Privacy & Security'
+                      : activeModal === 'profile'
+                      ? 'Account & Profile'
+                      : activeModal === 'help'
+                      ? 'Help & Documentation'
+                      : 'Preferences & Settings'}
+                  </span>
+                </div>
                 <button
-                  onClick={onResetProgress}
-                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 hover:text-rose-600 cursor-pointer"
+                  onClick={() => setActiveModal(null)}
+                  className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
-                  Reset
+                  <X className="w-4 h-4" />
                 </button>
+              </div>
+
+              {activeModal === 'shortcuts' && (
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-600 dark:text-slate-300">Run / Pause Execution</span>
+                    <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold">Space</kbd>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-600 dark:text-slate-300">Next Step</span>
+                    <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold">→</kbd>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-600 dark:text-slate-300">Previous Step</span>
+                    <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold">←</kbd>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-600 dark:text-slate-300">Focus Global Search</span>
+                    <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold">/</kbd>
+                  </div>
+                  <div className="flex justify-between py-1.5">
+                    <span className="text-slate-600 dark:text-slate-300">Indent in Code Editor</span>
+                    <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold">Tab</kbd>
+                  </div>
+                </div>
               )}
+
+              {activeModal === 'profile' && (
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <label className="block text-slate-400 font-semibold mb-1">Display Name</label>
+                    <input
+                      type="text"
+                      defaultValue="Soaib"
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 font-semibold mb-1">Email</label>
+                    <input
+                      type="email"
+                      defaultValue="soaib@codeflow.dev"
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 font-semibold mb-1">Account Role</label>
+                    <div className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 font-mono text-xs">
+                      Software Engineering Learner
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {(activeModal === 'settings' || activeModal === 'editor' || activeModal === 'security' || activeModal === 'help') && (
+                <div className="py-2 text-xs text-slate-600 dark:text-slate-300 space-y-2">
+                  <p>Account options and custom user preferences are synchronized with your active session.</p>
+                  <div className="p-3 rounded-lg bg-[#F2EEE5] dark:bg-slate-800/80 border border-[#E0D9CB] dark:border-slate-700 text-[11.5px] space-y-1">
+                    <div className="font-semibold text-slate-700 dark:text-slate-200">Session Status:</div>
+                    <div className="text-emerald-600 dark:text-emerald-400 font-medium">✓ Logged in as Soaib</div>
+                    <div className="text-slate-500">Theme: {darkMode ? 'Dark Mode (Amber/Gold)' : 'Light Mode (Beige Palette)'}</div>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+                <button
+                  onClick={() => setActiveModal(null)}
+                  className="px-4 py-1.5 rounded-lg bg-[#2563EB] dark:bg-amber-500 hover:bg-[#1D4ED8] dark:hover:bg-amber-600 text-white dark:text-slate-950 text-xs font-semibold cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         )}
