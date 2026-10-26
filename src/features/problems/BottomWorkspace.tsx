@@ -13,7 +13,7 @@ import {
   DifficultyBadge,
   TopicData,
   TopicStep
-} from '../types/codeflow';
+} from '@/types/codeflow';
 
 interface BottomWorkspaceProps {
   problems: PracticeProblem[];

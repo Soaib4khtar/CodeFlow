@@ -44,7 +44,7 @@ import {
   CheckCircle2,
   Star
 } from 'lucide-react';
-import { LearningPhase, PillarId, TopicData } from '../types/codeflow';
+import { LearningPhase, PillarId, TopicData } from '@/types/codeflow';
 
 interface LeftSidebarProps {
   topics: TopicData[];

@@ -1,4 +1,4 @@
-import { PracticeProblem } from '../types/codeflow';
+import { PracticeProblem } from '@/types/codeflow';
 
 /**
  * Builds an empty starter template (function signature only, no solution)

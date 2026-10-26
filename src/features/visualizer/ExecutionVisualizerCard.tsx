@@ -6,7 +6,7 @@ import {
   Lightbulb,
   ArrowDown
 } from 'lucide-react';
-import { TopicData, TopicStep, VisualBox, VisualPointer } from '../types/codeflow';
+import { TopicData, TopicStep, VisualBox, VisualPointer } from '@/types/codeflow';
 
 interface ExecutionVisualizerCardProps {
   topic: TopicData;

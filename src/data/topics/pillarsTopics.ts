@@ -1,4 +1,4 @@
-import { TopicData } from '../types/codeflow';
+import { TopicData } from '@/types/codeflow';
 
 export const pillarsTopics: TopicData[] = [
   // ============================================================================

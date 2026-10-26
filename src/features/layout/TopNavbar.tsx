@@ -1,26 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
-import {
-  Search,
-  Bell,
-  Sun,
-  Moon,
-  Code2,
-  Menu,
-  X,
-  PanelLeftOpen,
-  Star,
-  Trash2,
-  User,
-  Settings,
-  Sliders,
-  Keyboard,
-  HelpCircle,
-  LogOut,
-  LogIn,
-  Shield,
-  Check
-} from 'lucide-react';
-import { TopicData, PracticeProblem } from '../types/codeflow';
+import { Search, Bell, Sun, Moon, Code2, Menu, X, Star, Trash2 } from 'lucide-react';
+import { TopicData, PracticeProblem } from '@/types/codeflow';
+import { AccountMenu } from '@/features/account/AccountMenu';
+import { AccountApi } from '@/features/account/useAccount';
 
 interface TopNavbarProps {
   searchQuery: string;
@@ -33,13 +15,10 @@ interface TopNavbarProps {
   onToggleDarkMode: () => void;
   onToggleMobileMenu: () => void;
   mobileMenuOpen: boolean;
-  sidebarVisible: boolean;
-  onToggleSidebar: () => void;
   favourites: string[];
   onToggleFavourite: (topicId: string) => void;
-  completedTopics: string[];
-  solvedProblems: string[];
   onResetProgress: () => void;
+  account: AccountApi;
 }
 
 export const TopNavbar: React.FC<TopNavbarProps> = ({
@@ -53,18 +32,14 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   onToggleDarkMode,
   onToggleMobileMenu,
   mobileMenuOpen,
-  sidebarVisible,
-  onToggleSidebar,
   favourites,
   onToggleFavourite,
-  completedTopics
+  onResetProgress,
+  account
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [favDrawerOpen, setFavDrawerOpen] = useState(false);
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [activeModal, setActiveModal] = useState<string | null>(null);
 
   // Press '/' to focus search bar
   useEffect(() => {
@@ -82,8 +57,6 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
       } else if (e.key === 'Escape') {
         setDropdownOpen(false);
         setFavDrawerOpen(false);
-        setAccountMenuOpen(false);
-        setActiveModal(null);
         inputRef.current?.blur();
       }
     };
@@ -264,7 +237,6 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         <button
           onClick={() => {
             setFavDrawerOpen((prev) => !prev);
-            setAccountMenuOpen(false);
           }}
           title="Saved Favourites"
           className={`p-2 rounded-lg transition-colors relative cursor-pointer ${
@@ -294,21 +266,8 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           {darkMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
         </button>
 
-        {/* User Account Options Button (Repurposed from Progress Dashboard) */}
-        <button
-          onClick={() => {
-            setAccountMenuOpen((prev) => !prev);
-            setFavDrawerOpen(false);
-          }}
-          title="User Account Options"
-          className={`w-7 h-7 rounded-full bg-[#2563EB] dark:bg-amber-500 text-white dark:text-slate-950 text-xs font-bold flex items-center justify-center shadow-xs select-none cursor-pointer transition-transform ${
-            accountMenuOpen
-              ? 'ring-2 ring-blue-400 dark:ring-amber-400 scale-105'
-              : 'hover:scale-105'
-          }`}
-        >
-          S
-        </button>
+        {/* Account dropdown (profile, settings, appearance, privacy, help, login/logout) */}
+        <AccountMenu account={account} darkMode={darkMode} onResetProgress={onResetProgress} />
 
         {/* POPOVER 1: Saved Favourites Drawer */}
         {favDrawerOpen && (
@@ -373,258 +332,6 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           </div>
         )}
 
-        {/* POPOVER 2: Repurposed User Account Options Menu */}
-        {accountMenuOpen && (
-          <div
-            className={`absolute right-0 top-12 w-72 rounded-xl border shadow-xl p-3 z-50 space-y-2 ${
-              darkMode
-                ? 'bg-slate-900 border-slate-700 text-slate-100'
-                : 'bg-[#FAF8F5] border-[#E2DCD0] text-[#1E293B]'
-            }`}
-          >
-            {/* User Profile Header */}
-            <div className="flex items-center justify-between border-b pb-2.5 border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-full bg-[#2563EB] dark:bg-amber-500 text-white dark:text-slate-950 text-sm font-extrabold flex items-center justify-center shrink-0">
-                  S
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-bold truncate">Soaib</div>
-                  <div className="text-[11px] text-slate-400 truncate">soaib@codeflow.dev</div>
-                </div>
-              </div>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                {isLoggedIn ? 'Active' : 'Guest'}
-              </span>
-            </div>
-
-            {/* Account Options Navigation List */}
-            <div className="space-y-0.5 text-xs">
-              <button
-                onClick={() => {
-                  setActiveModal('profile');
-                  setAccountMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
-                  darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
-                }`}
-              >
-                <User className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />
-                <span className="font-medium flex-1">Profile & Account</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveModal('settings');
-                  setAccountMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
-                  darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
-                }`}
-              >
-                <Settings className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                <span className="font-medium flex-1">Settings & Preferences</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveModal('editor');
-                  setAccountMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
-                  darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
-                }`}
-              >
-                <Sliders className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                <span className="font-medium flex-1">Editor & Appearance</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveModal('shortcuts');
-                  setAccountMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
-                  darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
-                }`}
-              >
-                <Keyboard className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                <span className="font-medium flex-1">Keyboard Shortcuts</span>
-                <span className="text-[10px] font-mono text-slate-400 border border-slate-300 dark:border-slate-700 px-1 rounded">
-                  /
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveModal('security');
-                  setAccountMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
-                  darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
-                }`}
-              >
-                <Shield className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                <span className="font-medium flex-1">Privacy & Security</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setActiveModal('help');
-                  setAccountMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
-                  darkMode ? 'hover:bg-slate-800' : 'hover:bg-[#EFECE4]'
-                }`}
-              >
-                <HelpCircle className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                <span className="font-medium flex-1">Help & Feedback</span>
-              </button>
-            </div>
-
-            {/* Divider & Login / Logout Action */}
-            <div className="pt-1 border-t border-slate-200 dark:border-slate-800">
-              <button
-                onClick={() => {
-                  setIsLoggedIn((prev) => !prev);
-                  setAccountMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs font-semibold transition-colors cursor-pointer ${
-                  isLoggedIn
-                    ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
-                    : 'text-[#2563EB] dark:text-amber-400 hover:bg-blue-50 dark:hover:bg-amber-950/40'
-                }`}
-              >
-                {isLoggedIn ? (
-                  <>
-                    <LogOut className="w-4 h-4" />
-                    <span>Log Out</span>
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="w-4 h-4" />
-                    <span>Log In</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Account Modal for Settings/Shortcuts/Profile when selected */}
-        {activeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-            <div
-              className={`w-full max-w-md rounded-xl border shadow-2xl p-5 space-y-4 ${
-                darkMode
-                  ? 'bg-slate-900 border-slate-700 text-slate-100'
-                  : 'bg-[#FAF8F5] border-[#E2DCD0] text-slate-800'
-              }`}
-            >
-              <div className="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-800">
-                <div className="flex items-center gap-2 text-sm font-bold capitalize">
-                  {activeModal === 'profile' && <User className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />}
-                  {activeModal === 'settings' && <Settings className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />}
-                  {activeModal === 'editor' && <Sliders className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />}
-                  {activeModal === 'shortcuts' && <Keyboard className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />}
-                  {activeModal === 'security' && <Shield className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />}
-                  {activeModal === 'help' && <HelpCircle className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />}
-                  <span>
-                    {activeModal === 'shortcuts'
-                      ? 'Keyboard Shortcuts'
-                      : activeModal === 'editor'
-                      ? 'Editor & Appearance'
-                      : activeModal === 'security'
-                      ? 'Privacy & Security'
-                      : activeModal === 'profile'
-                      ? 'Account & Profile'
-                      : activeModal === 'help'
-                      ? 'Help & Documentation'
-                      : 'Preferences & Settings'}
-                  </span>
-                </div>
-                <button
-                  onClick={() => setActiveModal(null)}
-                  className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {activeModal === 'shortcuts' && (
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                    <span className="text-slate-600 dark:text-slate-300">Run / Pause Execution</span>
-                    <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold">Space</kbd>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                    <span className="text-slate-600 dark:text-slate-300">Next Step</span>
-                    <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold">→</kbd>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                    <span className="text-slate-600 dark:text-slate-300">Previous Step</span>
-                    <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold">←</kbd>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                    <span className="text-slate-600 dark:text-slate-300">Focus Global Search</span>
-                    <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold">/</kbd>
-                  </div>
-                  <div className="flex justify-between py-1.5">
-                    <span className="text-slate-600 dark:text-slate-300">Indent in Code Editor</span>
-                    <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono font-bold">Tab</kbd>
-                  </div>
-                </div>
-              )}
-
-              {activeModal === 'profile' && (
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <label className="block text-slate-400 font-semibold mb-1">Display Name</label>
-                    <input
-                      type="text"
-                      defaultValue="Soaib"
-                      className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-400 font-semibold mb-1">Email</label>
-                    <input
-                      type="email"
-                      defaultValue="soaib@codeflow.dev"
-                      className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-400 font-semibold mb-1">Account Role</label>
-                    <div className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 font-mono text-xs">
-                      Software Engineering Learner
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {(activeModal === 'settings' || activeModal === 'editor' || activeModal === 'security' || activeModal === 'help') && (
-                <div className="py-2 text-xs text-slate-600 dark:text-slate-300 space-y-2">
-                  <p>Account options and custom user preferences are synchronized with your active session.</p>
-                  <div className="p-3 rounded-lg bg-[#F2EEE5] dark:bg-slate-800/80 border border-[#E0D9CB] dark:border-slate-700 text-[11.5px] space-y-1">
-                    <div className="font-semibold text-slate-700 dark:text-slate-200">Session Status:</div>
-                    <div className="text-emerald-600 dark:text-emerald-400 font-medium">✓ Logged in as Soaib</div>
-                    <div className="text-slate-500">Theme: {darkMode ? 'Dark Mode (Amber/Gold)' : 'Light Mode (Beige Palette)'}</div>
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-end">
-                <button
-                  onClick={() => setActiveModal(null)}
-                  className="px-4 py-1.5 rounded-lg bg-[#2563EB] dark:bg-amber-500 hover:bg-[#1D4ED8] dark:hover:bg-amber-600 text-white dark:text-slate-950 text-xs font-semibold cursor-pointer"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </header>
   );

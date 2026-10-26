@@ -1,7 +1,7 @@
-import { LearningPhase, PracticeProblem, TopicData } from '../types/codeflow';
-import { dsaTopicsPart1 } from './dsaTopicsPart1';
-import { dsaTopicsPart2 } from './dsaTopicsPart2';
-import { pillarsTopics } from './pillarsTopics';
+import { LearningPhase, PracticeProblem, TopicData } from '@/types/codeflow';
+import { dsaTopicsPart1 } from '@/data/topics/dsaTopicsPart1';
+import { dsaTopicsPart2 } from '@/data/topics/dsaTopicsPart2';
+import { pillarsTopics } from '@/data/topics/pillarsTopics';
 
 const rawDsaTopics: TopicData[] = [...dsaTopicsPart1, ...dsaTopicsPart2];
 

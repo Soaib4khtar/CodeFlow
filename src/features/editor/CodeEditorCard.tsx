@@ -8,8 +8,8 @@ import {
   XCircle,
   AlertCircle
 } from 'lucide-react';
-import { PracticeProblem } from '../types/codeflow';
-import { TestCaseResult } from '../utils/liveCodeVisualizer';
+import { PracticeProblem } from '@/types/codeflow';
+import { TestCaseResult } from '@/lib/liveCodeVisualizer';
 
 interface CodeEditorCardProps {
   code: string;
@@ -22,6 +22,8 @@ interface CodeEditorCardProps {
   activeProblem?: PracticeProblem;
   executionError?: string | null;
   testResults?: TestCaseResult[] | null;
+  /** Editor font size in px (user preference). */
+  fontSize?: number;
 }
 
 const KEYWORDS = new Set([
@@ -174,7 +176,8 @@ export const CodeEditorCard: React.FC<CodeEditorCardProps> = ({
   darkMode,
   activeProblem,
   executionError,
-  testResults
+  testResults,
+  fontSize = 12.5
 }) => {
   const [copied, setCopied] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -287,11 +290,14 @@ export const CodeEditorCard: React.FC<CodeEditorCardProps> = ({
             - Syntax color theme stays 100% active while typing.
             - Active line highlights during execution trace.
         */}
-        <div className="bg-[#0D1117] rounded-xl py-3 px-1 font-mono text-[12.5px] border border-slate-800/80 shadow-inner min-h-[350px] flex overflow-hidden">
+        <div
+          style={{ fontSize }}
+          className="bg-[#0D1117] rounded-xl py-3 px-1 font-mono border border-slate-800/80 shadow-inner min-h-[350px] flex overflow-hidden"
+        >
           {/* Synchronized Line Numbers Gutter */}
           <div
             ref={gutterRef}
-            className="select-none pr-3 pl-2.5 text-right text-slate-500 text-[12px] leading-[1.68] border-r border-slate-800/80 shrink-0 overflow-hidden"
+            className="select-none pr-3 pl-2.5 text-right text-slate-500 leading-[1.68] border-r border-slate-800/80 shrink-0 overflow-hidden"
           >
             {lines.map((_, idx) => {
               const lineNum = idx + 1;
@@ -319,7 +325,7 @@ export const CodeEditorCard: React.FC<CodeEditorCardProps> = ({
             <div
               ref={preRef}
               aria-hidden="true"
-              className="absolute inset-0 px-3 pointer-events-none select-none overflow-hidden whitespace-pre font-mono text-[12.5px] leading-[1.68]"
+              className="absolute inset-0 px-3 pointer-events-none select-none overflow-hidden whitespace-pre font-mono leading-[1.68]"
             >
               {lines.map((line, idx) => {
                 const lineNum = idx + 1;
@@ -353,7 +359,7 @@ export const CodeEditorCard: React.FC<CodeEditorCardProps> = ({
               autoComplete="off"
               wrap="off"
               placeholder="Write your code here..."
-              className={`relative z-10 w-full h-full min-h-[330px] bg-transparent text-transparent font-mono text-[12.5px] leading-[1.68] px-3 focus:outline-none resize-none overflow-auto whitespace-pre selection:bg-blue-500/30 selection:text-transparent ${
+              className={`relative z-10 w-full h-full min-h-[330px] bg-transparent text-transparent font-mono leading-[1.68] px-3 focus:outline-none resize-none overflow-auto whitespace-pre selection:bg-blue-500/30 selection:text-transparent ${
                 darkMode ? 'caret-amber-400' : 'caret-blue-400'
               }`}
             />

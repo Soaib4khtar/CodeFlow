@@ -1,4 +1,4 @@
-import { PracticeProblem, TopicStep, VisualBox, VisualPointer } from '../types/codeflow';
+import { PracticeProblem, TopicStep, VisualBox, VisualPointer } from '@/types/codeflow';
 
 export interface TestCaseResult {
   label: string;

@@ -1,20 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useAccount, PLAYBACK_MS } from '@/features/account/useAccount';
 import {
   ALL_CODEFLOW_TOPICS,
   PRACTICE_PROBLEMS,
   getProblemsForTopic
-} from './data/problemsData';
-import { CodeLanguage, PracticeProblem, TopicData } from './types/codeflow';
-import { TopNavbar } from './components/TopNavbar';
-import { LeftSidebar } from './components/LeftSidebar';
-import { CodeEditorCard } from './components/CodeEditorCard';
-import { ExecutionVisualizerCard } from './components/ExecutionVisualizerCard';
-import { BottomWorkspace } from './components/BottomWorkspace';
-import { getBlankStarterCode, generatePseudocode } from './utils/problemHelpers';
+} from '@/data/problemsData';
+import { CodeLanguage, PracticeProblem, TopicData } from '@/types/codeflow';
+import { TopNavbar } from '@/features/layout/TopNavbar';
+import { LeftSidebar } from '@/features/layout/LeftSidebar';
+import { CodeEditorCard } from '@/features/editor/CodeEditorCard';
+import { ExecutionVisualizerCard } from '@/features/visualizer/ExecutionVisualizerCard';
+import { BottomWorkspace } from '@/features/problems/BottomWorkspace';
+import { getBlankStarterCode, generatePseudocode } from '@/lib/problemHelpers';
 import {
   executeAndVisualizeCode,
   LiveExecutionResult
-} from './utils/liveCodeVisualizer';
+} from '@/lib/liveCodeVisualizer';
 import {
   ChevronRight,
   ChevronLeft,
@@ -34,35 +36,24 @@ const LS_FAV_KEY = 'codeflow_favourites_v1';
 const LS_COMPLETED_TOPICS_KEY = 'codeflow_completed_topics_v1';
 const LS_SOLVED_PROBLEMS_KEY = 'codeflow_solved_problems_v1';
 
-function loadSavedList(key: string): string[] {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
 export function App() {
   // Default to 'binary-search' and its #1 Recommended Problem on load
   const [selectedTopicId, setSelectedTopicId] = useState<string>('binary-search');
   const [stepIndex, setStepIndex] = useState<number>(2); // 0-indexed -> Step 3 / 8
-  const [language, setLanguage] = useState<CodeLanguage>('javascript');
+  const account = useAccount();
+  const { preferences } = account;
+  const [language, setLanguage] = useState<CodeLanguage>(preferences.defaultLanguage);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   // Persistent Progress & Favourites in localStorage
-  const [favourites, setFavourites] = useState<string[]>(() => loadSavedList(LS_FAV_KEY));
-  const [completedTopics, setCompletedTopics] = useState<string[]>(() =>
-    loadSavedList(LS_COMPLETED_TOPICS_KEY)
-  );
-  const [solvedProblems, setSolvedProblems] = useState<string[]>(() =>
-    loadSavedList(LS_SOLVED_PROBLEMS_KEY)
-  );
+  const [favourites, setFavourites] = useLocalStorage<string[]>(LS_FAV_KEY, []);
+  const [completedTopics, setCompletedTopics] = useLocalStorage<string[]>(LS_COMPLETED_TOPICS_KEY, []);
+  const [solvedProblems, setSolvedProblems] = useLocalStorage<string[]>(LS_SOLVED_PROBLEMS_KEY, []);
 
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [darkMode, setDarkMode] = useState<boolean>(false);
+  // Theme is a persisted account preference (Account > Editor & Appearance)
+  const darkMode = preferences.theme === 'dark';
+  const setDarkMode = (dark: boolean) => account.updatePreferences({ theme: dark ? 'dark' : 'light' });
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
 
@@ -74,7 +65,7 @@ export function App() {
     ALL_CODEFLOW_TOPICS.find((t) => t.id === selectedTopicId) || ALL_CODEFLOW_TOPICS[0];
 
   // Main Code Editor state & dynamic live execution trace state
-  const [editorCode, setEditorCode] = useState<string>(() => baseTopic.code['javascript']);
+  const [editorCode, setEditorCode] = useState<string>(() => baseTopic.code[preferences.defaultLanguage]);
   const [liveResult, setLiveResult] = useState<LiveExecutionResult | null>(null);
   const [showPseudocode, setShowPseudocode] = useState<boolean>(false);
 
@@ -86,31 +77,6 @@ export function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
-
-  // Sync to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(LS_FAV_KEY, JSON.stringify(favourites));
-    } catch {
-      // ignore storage errors
-    }
-  }, [favourites]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LS_COMPLETED_TOPICS_KEY, JSON.stringify(completedTopics));
-    } catch {
-      // ignore storage errors
-    }
-  }, [completedTopics]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LS_SOLVED_PROBLEMS_KEY, JSON.stringify(solvedProblems));
-    } catch {
-      // ignore storage errors
-    }
-  }, [solvedProblems]);
 
   // Merge live visualized steps if the user ran custom/problem code without errors
   const currentTopic: TopicData =
@@ -146,7 +112,7 @@ export function App() {
 
       if (!result.error && result.steps.length > 0) {
         setStepIndex(0);
-        setIsPlaying(true);
+        setIsPlaying(preferences.autoPlay);
 
         // If all test cases for the active problem passed, mark it solved!
         if (
@@ -162,7 +128,7 @@ export function App() {
         }
       }
     },
-    [baseTopic, solvedProblems, markProblemSolved, markTopicCompleted]
+    [baseTopic, solvedProblems, markProblemSolved, markTopicCompleted, preferences.autoPlay]
   );
 
   // Handle topic selection from sidebar or search
@@ -230,9 +196,9 @@ export function App() {
         }
         return prev + 1;
       });
-    }, 1050);
+    }, PLAYBACK_MS[preferences.playbackSpeed]);
     return () => clearInterval(timer);
-  }, [isPlaying, totalSteps]);
+  }, [isPlaying, totalSteps, preferences.playbackSpeed]);
 
   const handleRunToggle = useCallback(() => {
     if (isPlaying) {
@@ -343,13 +309,10 @@ export function App() {
         onToggleDarkMode={() => setDarkMode(!darkMode)}
         onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
         mobileMenuOpen={mobileMenuOpen}
-        sidebarVisible={sidebarVisible}
-        onToggleSidebar={() => setSidebarVisible((prev) => !prev)}
         favourites={favourites}
         onToggleFavourite={toggleFavourite}
-        completedTopics={completedTopics}
-        solvedProblems={solvedProblems}
         onResetProgress={handleResetProgress}
+        account={account}
       />
 
       {/* Main Body Layout: Left Sidebar fills the left edge + Right Content Workspace */}
@@ -368,7 +331,7 @@ export function App() {
         />
 
         {/* Main Workspace fills remaining width and scrolls independently */}
-        <main className="flex-1 min-w-0 max-w-[1600px] p-4 sm:p-5 lg:p-6 space-y-4 transition-all duration-300 ease-in-out">
+        <main className="flex-1 min-w-0 w-full max-w-[1600px] mx-auto p-4 sm:p-5 lg:p-6 space-y-4 transition-all duration-300 ease-in-out">
           {/* Collapsed Sidebar Toggle Button: Positioned directly below the main header, aligned right underneath the CodeFlow logo */}
           {!sidebarVisible && (
             <div className="hidden lg:flex items-center -mt-1 mb-1">
@@ -376,14 +339,13 @@ export function App() {
                 onClick={() => setSidebarVisible(true)}
                 title="Show Sidebar"
                 aria-label="Show Sidebar"
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
+                className={`flex items-center justify-center p-1.5 rounded-lg border transition-all cursor-pointer shadow-2xs ${
                   darkMode
                     ? 'border-slate-700 bg-slate-900 text-amber-400 hover:bg-slate-800 hover:text-amber-300'
                     : 'border-[#E0D9CB] bg-[#FAF8F5] text-slate-700 hover:bg-[#F2EEE5] hover:text-[#2563EB]'
                 }`}
               >
                 <PanelLeftOpen className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />
-                <span>Show Sidebar</span>
               </button>
             </div>
           )}
@@ -677,6 +639,7 @@ export function App() {
               activeProblem={selectedProblem}
               executionError={liveResult?.error}
               testResults={liveResult?.testResults}
+              fontSize={preferences.editorFontSize}
             />
 
             <ExecutionVisualizerCard

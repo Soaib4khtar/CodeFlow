@@ -1,4 +1,4 @@
-import { TopicStep, VisualTreeNode } from '../types/codeflow';
+import { TopicStep, VisualTreeNode } from '@/types/codeflow';
 
 export interface CustomRunResult {
   steps: TopicStep[];
